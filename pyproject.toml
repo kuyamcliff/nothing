@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nothing"
+version = "1.0.0"
+description = "Do nothing, productively. A CLI break timer and Pomodoro tool."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Kuyam Cliff" }]
+requires-python = ">=3.9"
+keywords = ["cli", "timer", "pomodoro", "productivity", "break"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Environment :: Console",
+]
+
+[project.scripts]
+nothing = "nothing.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["nothing*"]
