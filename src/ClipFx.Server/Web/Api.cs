@@ -103,6 +103,7 @@ public static class Api
     static async Task Stream(HttpContext ctx, SnapshotBuilder builder, SnapshotHub hub)
     {
         var ct = ctx.RequestAborted;
+        ClipFx.Platform.Diag.Count("web.streams");
         ctx.Response.Headers.ContentType = "text/event-stream";
         ctx.Response.Headers.CacheControl = "no-cache";
         ctx.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();

@@ -44,32 +44,55 @@ public sealed class Enforcer : BackgroundService, IEnforcementState
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
+        bool full = true;
         while (!ct.IsCancellationRequested)
         {
-            Reconcile();
+            Reconcile(full);
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(DriftCheck);
-            try { await _signal.Reader.ReadAsync(cts.Token); }
-            catch (OperationCanceledException) when (!ct.IsCancellationRequested) { }
+            try { await _signal.Reader.ReadAsync(cts.Token); full = false; }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested) { full = true; }
             catch (OperationCanceledException) { break; }
         }
     }
 
-    /// <summary>Applies the difference between desired and actual firewall state.</summary>
-    public void Reconcile()
+    Dictionary<string, string>? _known; // our rules as last read or written
+
+    /// <summary>
+    /// Applies the difference between desired and actual firewall state.
+    /// A full pass re-reads the rules from Windows to repair outside changes;
+    /// a fast pass trusts what we last wrote, so a block lands in milliseconds.
+    /// </summary>
+    public void Reconcile(bool full = true)
     {
         lock (_gate)
         {
             var errors = new List<string>();
             var (desiredList, desiredGlobal) = _engine.Desired();
             var desired = desiredList.ToDictionary(i => i.Key, StringComparer.Ordinal);
-            IReadOnlyDictionary<string, string> actual;
-            try { actual = _fw.GetApplied(); }
-            catch (Exception ex)
+
+            // Cut open connections first: it is the quickest way to stop data already flowing.
+            try
             {
-                Fail("Can't read firewall rules: " + ex.Message, ex);
-                return;
+                foreach (var id in desiredList)
+                {
+                    if (_known != null && _known.ContainsKey(id.Key)) continue;
+                    var pids = _engine.PidsFor(id.Key);
+                    if (pids.Count > 0) _killer.Kill(pids);
+                }
             }
+            catch (Exception ex) { _log.LogWarning(ex, "Closing connections failed"); }
+
+            if (full || _known == null)
+            {
+                try { _known = new Dictionary<string, string>(_fw.GetApplied(), StringComparer.Ordinal); }
+                catch (Exception ex)
+                {
+                    Fail("Can't read firewall rules: " + ex.Message, ex);
+                    return;
+                }
+            }
+            var actual = _known;
 
             var appliedNow = new HashSet<string>(actual.Keys.Where(k => k != IFirewall.GlobalKey), StringComparer.Ordinal);
             bool globalNow = actual.ContainsKey(IFirewall.GlobalKey);
@@ -78,28 +101,32 @@ public sealed class Enforcer : BackgroundService, IEnforcementState
             foreach (var key in appliedNow.ToList())
             {
                 if (desired.ContainsKey(key)) continue;
-                try { _fw.Unblock(key); appliedNow.Remove(key); }
+                try { _fw.Unblock(key); appliedNow.Remove(key); actual.Remove(key); }
                 catch (Exception ex) { errors.Add(ex.Message); _log.LogError(ex, "Unblock {Key} failed", key); }
             }
 
             foreach (var (key, id) in desired)
             {
                 if (actual.TryGetValue(key, out var sig) && sig == _fw.Signature(id)) continue;
-                try { _fw.Block(id); appliedNow.Add(key); newlyBlocked.Add(id); }
+                try { _fw.Block(id); appliedNow.Add(key); newlyBlocked.Add(id); actual[key] = _fw.Signature(id); }
                 catch (Exception ex) { errors.Add(ex.Message); _log.LogError(ex, "Block {Key} failed", key); }
             }
 
-            bool globalTurnedOn = false;
             if (desiredGlobal != globalNow)
             {
-                try { _fw.SetGlobalBlock(desiredGlobal); globalTurnedOn = desiredGlobal; globalNow = desiredGlobal; }
+                try
+                {
+                    if (desiredGlobal) { _killer.KillAll(); }
+                    _fw.SetGlobalBlock(desiredGlobal);
+                    globalNow = desiredGlobal;
+                    if (desiredGlobal) actual[IFirewall.GlobalKey] = "g"; else actual.Remove(IFirewall.GlobalKey);
+                }
                 catch (Exception ex) { errors.Add(ex.Message); _log.LogError(ex, "Global block failed"); }
             }
 
             // Rules stop new traffic; dropping open connections stops what is already flowing.
             try
             {
-                if (globalTurnedOn) _killer.KillAll();
                 foreach (var id in newlyBlocked)
                 {
                     var pids = _engine.PidsFor(id.Key).Union(_resolver.FindPids(id)).ToList();
@@ -108,7 +135,7 @@ public sealed class Enforcer : BackgroundService, IEnforcementState
             }
             catch (Exception ex) { _log.LogWarning(ex, "Closing connections failed"); }
 
-            try { FirewallEnabled = _fw.IsEnabled(); } catch { FirewallEnabled = false; }
+            if (full) { try { FirewallEnabled = _fw.IsEnabled(); } catch { FirewallEnabled = false; } }
 
             bool changed;
             lock (_stateGate)

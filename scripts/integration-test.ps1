@@ -138,15 +138,20 @@ try {
   Check ($code -eq 0) "internet back after reset (curl $code)"
 
   Step 'Desktop window loads the UI'
-  $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9333'
+  function Streams { $d = Invoke-RestMethod "$Api/diag"; [long]($d.counters.'web.streams') }
+  $before = Streams
   $gui = Start-Process $Exe -PassThru
   try {
-    $page = WaitUntil { (Invoke-RestMethod 'http://127.0.0.1:9333/json' -TimeoutSec 3) | Where-Object { $_.type -eq 'page' -and $_.url -like 'http://127.0.0.1:47613/*' } } 60 'webview page'
-    Check ($page.title -eq 'ClipFx Manager') "window shows the UI ($($page.title))"
+    $n = WaitUntil { $c = Streams; if ($c -gt $before) { $c } } 90 'window connected to the service'
+    Check ($n -gt $before) 'window loaded the UI and is receiving live data'
+    Start-Sleep 2
     Check (-not $gui.HasExited) 'window process running'
+    $title = (Get-Process -Id $gui.Id).MainWindowTitle
+    Check ($title -eq 'ClipFx Manager') "window title ($title)"
+    $second = Start-Process $Exe -PassThru
+    Check ($second.WaitForExit(15000)) 'second launch hands over to the open window and exits'
   } finally {
     Stop-Process -Id $gui.Id -Force -ErrorAction SilentlyContinue
-    Remove-Item Env:\WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS
   }
 
   Step 'Uninstall cleans up'

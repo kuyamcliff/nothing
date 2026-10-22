@@ -9,6 +9,7 @@ const dotnet = process.env.DOTNET || 'dotnet';
 export default defineConfig({
   testDir: '.',
   timeout: 30000,
+  globalTimeout: 6 * 60 * 1000,
   workers: 1,
   fullyParallel: false,
   reporter: [['list']],
