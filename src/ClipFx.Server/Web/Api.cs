@@ -27,6 +27,8 @@ public static class Api
 
         api.MapGet("/stream", Stream);
 
+        api.MapGet("/diag", () => Results.Json(Diag.Snapshot(), ServerHost.Json));
+
         api.MapPost("/apps/{id}/blocked", (string id, BlockedBody body, UsageEngine e, Enforcer enf) =>
         {
             var identity = e.IdentityOf(id);

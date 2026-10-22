@@ -162,6 +162,8 @@ try {
 }
 catch {
   Fail "unexpected error: $_"
+  try { Write-Host 'Diagnostics:'; Invoke-RestMethod "$Api/diag" | ConvertTo-Json -Depth 5 | Write-Host } catch { }
+  try { Write-Host 'Apps:'; (Snap).apps | Select-Object name, kind, path, received, sent | Format-Table -AutoSize | Out-String -Width 300 | Write-Host } catch { }
   Get-WinEvent -LogName Application -MaxEvents 30 -ErrorAction SilentlyContinue |
     Where-Object { $_.ProviderName -match 'ClipFx|\.NET Runtime|Application Error' } |
     ForEach-Object { Write-Host "$($_.TimeCreated) $($_.ProviderName): $($_.Message)" }

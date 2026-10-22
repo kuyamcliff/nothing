@@ -48,7 +48,8 @@ public sealed class TrafficMonitor : BackgroundService
 
     public void OnTraffic(TrafficEvent e)
     {
-        if (!AddressFilter.IsInternet(e.Remote)) return;
+        if (!AddressFilter.IsInternet(e.Remote)) { Diag.Count("monitor.local"); return; }
+        Diag.Count("monitor.internet");
         var id = _resolver.Resolve(e.Pid);
         if (id != null) { _engine.Record(id, e.Pid, e.Bytes, e.Sent); return; }
         lock (_pendingGate)
@@ -81,7 +82,7 @@ public sealed class TrafficMonitor : BackgroundService
                 if (id == null && DateTime.UtcNow - p.Since < GiveUpAfter) continue;
                 _pending.Remove(pid);
             }
-            id ??= AppIdentity.Unknown;
+            if (id == null) { Diag.Count("monitor.unknown"); id = AppIdentity.Unknown; }
             _engine.Record(id, pid, p.Up, true);
             _engine.Record(id, pid, p.Down, false);
         }

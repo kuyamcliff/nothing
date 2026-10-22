@@ -26,6 +26,7 @@ public sealed class EtwTrafficSource : ITrafficSource
     };
 
     volatile bool _disposed;
+    bool _loggedNet, _loggedProc;
     volatile bool _running;
     TraceEventSession? _session;
     Thread? _thread;
@@ -62,6 +63,7 @@ public sealed class EtwTrafficSource : ITrafficSource
             }
             catch (Exception ex)
             {
+                Diag.Note("etw.sessionError", ex.ToString());
                 Error = ex is UnauthorizedAccessException ? "Monitoring needs administrator rights." : ex.Message;
             }
             finally
@@ -77,9 +79,12 @@ public sealed class EtwTrafficSource : ITrafficSource
     {
         try
         {
+            Diag.Count("etw.events");
             if (e.ProviderGuid == KernelNetwork)
             {
+                Diag.Count("etw.net." + (int)e.ID);
                 if (!NetEvents.TryGetValue((int)e.ID, out bool sent)) return;
+                if (!_loggedNet) { _loggedNet = true; Diag.Note("etw.net.fields", string.Join(",", e.PayloadNames) + " | " + e.ToString()); }
                 int pid = Convert.ToInt32(Field(e, "PID") ?? e.ProcessID);
                 long size = Convert.ToInt64(Field(e, "size") ?? 0L);
                 if (size <= 0) return;
@@ -87,16 +92,24 @@ public sealed class EtwTrafficSource : ITrafficSource
                 var saddr = ToAddress(Field(e, "saddr"));
                 // Pick the address that is on the internet, whichever side it is reported on.
                 var remote = Engine.AddressFilter.IsInternet(daddr) ? daddr : saddr;
+                Diag.Count("etw.net.bytes", size);
                 Traffic?.Invoke(new TrafficEvent(pid, size, sent, remote));
             }
             else if (e.ProviderGuid == KernelProcess)
             {
+                Diag.Count("etw.proc." + (int)e.ID);
+                if (!_loggedProc && (int)e.ID == 1) { _loggedProc = true; Diag.Note("etw.proc.fields", string.Join(",", e.PayloadNames) + " | " + e.ToString()); }
                 int pid = Convert.ToInt32(Field(e, "ProcessID") ?? e.ProcessID);
                 if ((int)e.ID == 1 && Field(e, "ImageName") is string image) ProcessStarted?.Invoke(pid, image);
                 else if ((int)e.ID == 2) ProcessStopped?.Invoke(pid);
             }
         }
-        catch { /* one malformed event must never stop monitoring */ }
+        catch (Exception ex)
+        {
+            // one malformed event must never stop monitoring
+            Diag.Count("etw.errors");
+            Diag.Note("etw.lastError", ex.GetType().Name + ": " + ex.Message);
+        }
     }
 
     static object? Field(TraceEvent e, string name)

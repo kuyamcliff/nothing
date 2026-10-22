@@ -35,7 +35,8 @@ public sealed class WindowsProcessResolver : IProcessResolver
         if (_cache.TryGetValue(pid, out var e) && e.Expires > now) return e.Identity;
 
         var id = ResolveLive(pid);
-        if (id == null && _hints.TryGetValue(pid, out var hinted)) id = FromPath(pid, hinted, IntPtr.Zero);
+        if (id == null && _hints.TryGetValue(pid, out var hinted)) { id = FromPath(pid, hinted, IntPtr.Zero); Diag.Count("resolver.byHint"); }
+        Diag.Count(id == null ? "resolver.miss" : "resolver.fresh");
         if (id != null) _cache[pid] = new Entry(id, now + CacheFor);
         return id;
     }
@@ -43,7 +44,9 @@ public sealed class WindowsProcessResolver : IProcessResolver
     public void Hint(int pid, string imagePath)
     {
         var path = DeviceToDosPath(imagePath);
-        if (path == null) return;
+        Diag.Count(path == null ? "resolver.hint.unmapped" : "resolver.hint");
+        if (path == null) { Diag.Note("resolver.hint.unmappedPath", imagePath); return; }
+        Diag.Note("resolver.hint.last", $"{pid} {imagePath} -> {path}");
         _hints[pid] = path;
         _cache.TryRemove(pid, out _); // new process may reuse an old pid
     }
