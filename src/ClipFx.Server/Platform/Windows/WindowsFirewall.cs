@@ -10,7 +10,8 @@ namespace ClipFx.Platform.Windows;
 public sealed class WindowsFirewall : IFirewall
 {
     public const string Group = "ClipFx Manager";
-    const string Prefix = "clipfx|";
+    // Rule names and descriptions may not contain '|'. Description is "clipfx;<signature>;<key>".
+    const string Prefix = "clipfx;";
     const int ActionBlock = 0;
     const int DirIn = 1, DirOut = 2;
     const int AllProfiles = 0x7FFFFFFF;
@@ -58,8 +59,8 @@ public sealed class WindowsFirewall : IFirewall
             string? desc = rule.Description;
             string name = rule.Name;
             if (desc == null || !desc.StartsWith(Prefix, StringComparison.Ordinal)) { list.Add(new OurRule(name, "", "")); continue; }
-            var parts = desc.Split('|', 3);
-            list.Add(new OurRule(name, parts.Length > 1 ? parts[1] : "", parts.Length > 2 ? parts[2] : ""));
+            var parts = desc.Split(';', 3);
+            list.Add(new OurRule(name, parts.Length > 2 ? parts[2] : "", parts.Length > 1 ? parts[1] : ""));
         }
         return list;
     }
@@ -88,7 +89,7 @@ public sealed class WindowsFirewall : IFirewall
         {
             object policyObj = NewPolicy();
             dynamic policy = policyObj;
-            RemoveWhere(policyObj, r => r.Key == identity.Key);
+            RemoveWhere(policyObj, r => r.Key == Clean(identity.Key));
             int n = 0;
             foreach (var spec in specs)
             {
@@ -96,7 +97,7 @@ public sealed class WindowsFirewall : IFirewall
                 {
                     dynamic rule = NewRule();
                     rule.Name = $"ClipFx Manager - {Trim(identity.Name)} [{identity.Id}-{n}{(dir == DirOut ? "o" : "i")}]";
-                    rule.Description = $"{Prefix}{identity.Key}|{sig}";
+                    rule.Description = $"{Prefix}{sig};{Clean(identity.Key)}";
                     rule.Grouping = Group;
                     rule.Action = ActionBlock;
                     rule.Direction = dir;
@@ -130,7 +131,7 @@ public sealed class WindowsFirewall : IFirewall
             {
                 dynamic rule = NewRule();
                 rule.Name = $"ClipFx Manager - Data limit reached [{(dir == DirOut ? "o" : "i")}]";
-                rule.Description = $"{Prefix}{IFirewall.GlobalKey}|g";
+                rule.Description = $"{Prefix}g;{IFirewall.GlobalKey}";
                 rule.Grouping = Group;
                 rule.Action = ActionBlock;
                 rule.Direction = dir;
@@ -173,5 +174,7 @@ public sealed class WindowsFirewall : IFirewall
     static object? Invoke(object target, string name, BindingFlags kind, params object[] args) =>
         target.GetType().InvokeMember(name, kind, null, target, args);
 
-    static string Trim(string s) => s.Length <= 60 ? s : s[..60];
+    static string Trim(string s) => Clean(s.Length <= 60 ? s : s[..60]);
+
+    static string Clean(string s) => s.Replace('|', '/');
 }
