@@ -32,7 +32,7 @@ function WaitUntil([scriptblock] $cond, [int] $seconds, [string] $what) {
   throw "Timed out waiting for: $what"
 }
 function Download([string] $exe, [long] $bytes, [string] $rate = '', [int] $maxTime = 60) {
-  $curlArgs = @('-s', '-o', 'NUL', '--max-time', "$maxTime", '-4')
+  $curlArgs = @('-s', '-f', '-o', 'NUL', '--max-time', "$maxTime", '-4')
   if ($rate) { $curlArgs += @('--limit-rate', $rate) }
   $curlArgs += "$Url$bytes"
   & $exe @curlArgs
@@ -101,7 +101,7 @@ try {
   $start = (ProbeApp).total
   $limit = $start + 3MB
   Post "/apps/$($app.id)/limit" @{ bytes = $limit }
-  $code = Download $Probe 100000000 '2M' 90
+  $code = Download $Probe 20000000 '2M' 60
   Check ($code -ne 0) "download cut off at the limit (curl $code)"
   $a = WaitUntil { $a = ProbeApp; if ($a.limitReached -and $a.applied) { $a } } 15 'limit block'
   $over = $a.total - $limit
@@ -126,7 +126,7 @@ try {
   Step 'Overall limit blocks every app'
   $total = (Snap).overall.total
   Post '/overall/limit' @{ bytes = $total + 2MB }
-  $code = Download $Probe 100000000 '2M' 60
+  $code = Download $Probe 20000000 '2M' 60
   Check ($code -ne 0) "download cut off at the overall limit (curl $code)"
   $s = WaitUntil { $x = Snap; if ($x.overall.limitReached -and $x.overall.applied) { $x } } 15 'global block'
   $code = Download $Probe2 1000 '' 10
