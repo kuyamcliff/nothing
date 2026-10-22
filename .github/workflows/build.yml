@@ -1,0 +1,70 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  cross-platform:
+    name: Unit, API and UI tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet test tests/ClipFx.Tests -c Release
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: UI tests
+        working-directory: tests/e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npx playwright test
+
+  windows:
+    name: Windows build, real-system test, installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet test tests/ClipFx.Tests -c Release
+      - name: Publish
+        run: dotnet publish src/ClipFx.App -c Release -r win-x64 --self-contained true -p:DebugType=none -o publish
+      - name: Real Windows test (service, ETW, firewall, limits, restart, uninstall)
+        shell: pwsh
+        run: ./scripts/integration-test.ps1 -Exe "$PWD\publish\ClipFxManager.exe"
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = Get-Command iscc.exe -ErrorAction SilentlyContinue
+          if (-not $iscc) {
+            choco install innosetup -y --no-progress | Out-Null
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          } else { $iscc = $iscc.Source }
+          & $iscc installer\ClipFxManager.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Test installer
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist\ClipFxManagerSetup-*.exe | Select-Object -First 1
+          Start-Process $setup.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
+          $svc = Get-Service ClipFxManager
+          if ($svc.Status -ne 'Running') { throw "service not running after install: $($svc.Status)" }
+          $deadline = (Get-Date).AddSeconds(30)
+          do { try { $s = Invoke-RestMethod http://127.0.0.1:47613/api/snapshot; break } catch { Start-Sleep 1 } } while ((Get-Date) -lt $deadline)
+          if (-not $s.status.monitoring) { throw 'monitoring not running after install' }
+          $uninst = "${env:ProgramFiles}\ClipFx Manager\unins000.exe"
+          Start-Process $uninst -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
+          Start-Sleep 3
+          if (Get-Service ClipFxManager -ErrorAction SilentlyContinue) { throw 'service still present after uninstall' }
+          Write-Host 'Installer install/uninstall OK'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ClipFxManagerSetup
+          path: dist/ClipFxManagerSetup-*.exe

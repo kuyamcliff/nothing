@@ -1,0 +1,52 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{40BB48AA-968A-4688-901C-2598435D9AD7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClipFx.Server", "src\ClipFx.Server\ClipFx.Server.csproj", "{173AFADF-CBF6-4489-AA00-85A5B7BEEFB3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClipFx.App", "src\ClipFx.App\ClipFx.App.csproj", "{15B65FD9-EA2E-411E-A795-30AEEC31BA77}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{211A3719-1B4C-4EF2-974B-6DD8FE290026}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClipFx.Tests", "tests\ClipFx.Tests\ClipFx.Tests.csproj", "{110B74F2-97C2-40C9-8340-AB8955173D90}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{9BE23C81-7B81-4BC7-B624-539DFEF8B727}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClipFx.DevHost", "tools\ClipFx.DevHost\ClipFx.DevHost.csproj", "{3F92CD7B-AB50-43D7-A6B2-41B88D9632C5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{173AFADF-CBF6-4489-AA00-85A5B7BEEFB3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{173AFADF-CBF6-4489-AA00-85A5B7BEEFB3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{173AFADF-CBF6-4489-AA00-85A5B7BEEFB3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{173AFADF-CBF6-4489-AA00-85A5B7BEEFB3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{15B65FD9-EA2E-411E-A795-30AEEC31BA77}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{15B65FD9-EA2E-411E-A795-30AEEC31BA77}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{15B65FD9-EA2E-411E-A795-30AEEC31BA77}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{15B65FD9-EA2E-411E-A795-30AEEC31BA77}.Release|Any CPU.Build.0 = Release|Any CPU
+		{110B74F2-97C2-40C9-8340-AB8955173D90}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{110B74F2-97C2-40C9-8340-AB8955173D90}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{110B74F2-97C2-40C9-8340-AB8955173D90}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{110B74F2-97C2-40C9-8340-AB8955173D90}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3F92CD7B-AB50-43D7-A6B2-41B88D9632C5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3F92CD7B-AB50-43D7-A6B2-41B88D9632C5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3F92CD7B-AB50-43D7-A6B2-41B88D9632C5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3F92CD7B-AB50-43D7-A6B2-41B88D9632C5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{173AFADF-CBF6-4489-AA00-85A5B7BEEFB3} = {40BB48AA-968A-4688-901C-2598435D9AD7}
+		{15B65FD9-EA2E-411E-A795-30AEEC31BA77} = {40BB48AA-968A-4688-901C-2598435D9AD7}
+		{110B74F2-97C2-40C9-8340-AB8955173D90} = {211A3719-1B4C-4EF2-974B-6DD8FE290026}
+		{3F92CD7B-AB50-43D7-A6B2-41B88D9632C5} = {9BE23C81-7B81-4BC7-B624-539DFEF8B727}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClipFx Manager</title>
+  <link rel="icon" href="favicon.png">
+  <script>
+    // Apply the saved theme before first paint.
+    (function () {
+      var t = 'system';
+      try { t = localStorage.getItem('clipfx.theme') || 'system'; } catch (e) {}
+      if (t !== 'system') document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="app" id="app" aria-busy="true">
+    <header class="topbar">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+          <rect x="1" y="1" width="30" height="30" rx="8" class="logo-tile"/>
+          <path d="M7.95 22.55A9.3 9.3 0 1 1 24.05 22.55" fill="none" class="logo-ink" stroke-width="2.6" stroke-linecap="round"/>
+          <path d="M16 17.9 20.1 13.8" class="logo-ink" stroke-width="2.6" stroke-linecap="round"/>
+          <circle cx="16" cy="17.9" r="2.1" class="logo-dot"/>
+        </svg>
+        <span class="brand-name">ClipFx Manager</span>
+        <span class="chip chip-muted" id="simChip" hidden>Simulation</span>
+      </div>
+      <div class="topbar-actions">
+        <div class="seg" role="radiogroup" aria-label="Theme" id="themeSeg">
+          <button type="button" role="radio" data-theme-value="light" title="Light" aria-label="Light"><svg class="i"><use href="#i-sun"/></svg></button>
+          <button type="button" role="radio" data-theme-value="dark" title="Dark" aria-label="Dark"><svg class="i"><use href="#i-moon"/></svg></button>
+          <button type="button" role="radio" data-theme-value="system" title="System" aria-label="System"><svg class="i"><use href="#i-monitor"/></svg></button>
+        </div>
+        <button type="button" class="btn btn-icon" id="settingsBtn" title="Settings" aria-label="Settings"><svg class="i"><use href="#i-sliders"/></svg></button>
+      </div>
+    </header>
+
+    <div class="banners" id="banners" aria-live="polite"></div>
+
+    <main class="content">
+      <section class="summary">
+        <article class="card" id="usedCard">
+          <div class="card-head">
+            <h2 class="label">Data used</h2>
+            <button type="button" class="btn btn-ghost btn-sm" id="overallLimitBtn"><svg class="i"><use href="#i-pencil"/></svg><span>Set limit</span></button>
+          </div>
+          <div class="big" id="usedValue"><span class="skel skel-big"></span></div>
+          <div class="meter" id="usedMeter" hidden><div class="meter-fill" id="usedMeterFill"></div></div>
+          <div class="sub" id="usedSub"><span class="skel skel-line"></span></div>
+        </article>
+
+        <article class="card" id="liveCard">
+          <div class="card-head">
+            <h2 class="label">Live</h2>
+          </div>
+          <div class="rates">
+            <div class="rate"><svg class="i i-down"><use href="#i-arrow-down"/></svg><span id="rateDown"><span class="skel skel-mid"></span></span></div>
+            <div class="rate"><svg class="i i-up"><use href="#i-arrow-up"/></svg><span id="rateUp"><span class="skel skel-mid"></span></span></div>
+          </div>
+          <canvas class="spark" id="spark" aria-hidden="true"></canvas>
+        </article>
+
+        <article class="card" id="periodCard">
+          <div class="card-head">
+            <h2 class="label">Period</h2>
+            <button type="button" class="btn btn-ghost btn-sm" id="resetAllBtn"><svg class="i"><use href="#i-rotate"/></svg><span>Reset</span></button>
+          </div>
+          <dl class="kv">
+            <div><dt>Since</dt><dd id="periodStart"><span class="skel skel-line"></span></dd></div>
+            <div><dt>Resets</dt><dd id="periodNext"><span class="skel skel-line"></span></dd></div>
+          </dl>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="toolbar">
+          <label class="search">
+            <svg class="i"><use href="#i-search"/></svg>
+            <input type="search" id="search" placeholder="Search" autocomplete="off" spellcheck="false" aria-label="Search">
+            <kbd>/</kbd>
+          </label>
+          <div class="toolbar-right">
+            <label class="toggle">
+              <button type="button" role="switch" class="switch switch-sm" id="showSystem" aria-checked="false"><span class="knob"></span></button>
+              <span>Show system</span>
+            </label>
+            <label class="select">
+              <span class="sr">Sort</span>
+              <select id="sort" aria-label="Sort">
+                <option value="used">Most used</option>
+                <option value="live">Live</option>
+                <option value="name">Name</option>
+              </select>
+              <svg class="i"><use href="#i-chevron"/></svg>
+            </label>
+          </div>
+        </div>
+
+        <div class="table" role="table" aria-label="Apps">
+          <div class="thead" role="row">
+            <div role="columnheader">App</div>
+            <div role="columnheader">Live</div>
+            <div role="columnheader" class="num">Used</div>
+            <div role="columnheader">Limit</div>
+            <div role="columnheader" class="center">Internet</div>
+          </div>
+          <div class="tbody" id="rows" role="rowgroup"></div>
+          <div class="empty" id="empty" hidden>
+            <svg class="i i-xl"><use href="#i-activity"/></svg>
+            <span id="emptyText">No network activity yet</span>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- App details -->
+  <dialog class="dialog" id="appDialog" aria-labelledby="adName">
+    <form method="dialog" novalidate class="dialog-inner" id="appForm">
+      <header class="dialog-head">
+        <div class="app-icon app-icon-lg" id="adIcon"></div>
+        <div class="dialog-title">
+          <h3 id="adName"></h3>
+          <div class="tags" id="adTags"></div>
+        </div>
+        <button type="button" class="btn btn-icon" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+      </header>
+      <div class="dialog-body">
+        <div class="field-row">
+          <span class="field-label">Internet</span>
+          <button type="button" role="switch" class="switch" id="adSwitch" aria-checked="true" aria-label="Internet"><span class="knob"></span></button>
+        </div>
+        <div class="stats">
+          <div><span class="field-label">Downloaded</span><strong id="adDown"></strong></div>
+          <div><span class="field-label">Uploaded</span><strong id="adUp"></strong></div>
+          <div><span class="field-label">Total</span><strong id="adTotal"></strong></div>
+          <div><span class="field-label">Live</span><strong id="adLive"></strong></div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="adLimit">Limit</label>
+          <div class="limit-edit">
+            <input type="number" id="adLimit" min="0" step="any" inputmode="decimal" placeholder="No limit">
+            <div class="seg seg-text" role="radiogroup" aria-label="Unit" id="adUnit">
+              <button type="button" role="radio" data-unit="MB">MB</button>
+              <button type="button" role="radio" data-unit="GB">GB</button>
+            </div>
+            <button type="submit" class="btn btn-primary" id="adSave">Save</button>
+            <button type="button" class="btn btn-ghost" id="adClear">Remove</button>
+          </div>
+          <div class="meter" id="adMeter" hidden><div class="meter-fill" id="adMeterFill"></div></div>
+        </div>
+        <dl class="kv kv-grid">
+          <div><dt>Type</dt><dd id="adKind"></dd></div>
+          <div><dt>First seen</dt><dd id="adFirst"></dd></div>
+          <div class="kv-wide"><dt>Path</dt><dd class="path-line"><code id="adPath"></code><button type="button" class="btn btn-icon btn-xs" id="adCopy" title="Copy" aria-label="Copy path"><svg class="i"><use href="#i-copy"/></svg></button></dd></div>
+        </dl>
+      </div>
+      <footer class="dialog-foot">
+        <button type="button" class="btn btn-ghost btn-danger" id="adForget"><svg class="i"><use href="#i-trash"/></svg><span>Remove</span></button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="adReset"><svg class="i"><use href="#i-rotate"/></svg><span>Reset usage</span></button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Overall limit -->
+  <dialog class="dialog dialog-sm" id="limitDialog" aria-labelledby="ldTitle">
+    <form method="dialog" novalidate class="dialog-inner" id="limitForm">
+      <header class="dialog-head">
+        <div class="dialog-title"><h3 id="ldTitle">Data limit</h3></div>
+        <button type="button" class="btn btn-icon" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+      </header>
+      <div class="dialog-body">
+        <div class="limit-edit">
+          <input type="number" id="ldValue" min="0" step="any" inputmode="decimal" placeholder="No limit" aria-label="Limit">
+          <div class="seg seg-text" role="radiogroup" aria-label="Unit" id="ldUnit">
+            <button type="button" role="radio" data-unit="MB">MB</button>
+            <button type="button" role="radio" data-unit="GB">GB</button>
+          </div>
+        </div>
+      </div>
+      <footer class="dialog-foot">
+        <button type="button" class="btn btn-ghost" id="ldClear">Remove limit</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary" id="ldSave">Save</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Settings -->
+  <dialog class="dialog dialog-sm" id="settingsDialog" aria-labelledby="sdTitle">
+    <form method="dialog" novalidate class="dialog-inner" id="settingsForm">
+      <header class="dialog-head">
+        <div class="dialog-title"><h3 id="sdTitle">Settings</h3></div>
+        <button type="button" class="btn btn-icon" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+      </header>
+      <div class="dialog-body">
+        <div class="field">
+          <label class="field-label" for="sdPeriod">Reset usage</label>
+          <label class="select select-block">
+            <select id="sdPeriod">
+              <option value="daily">Every day</option>
+              <option value="weekly">Every week</option>
+              <option value="monthly">Every month</option>
+              <option value="never">Never</option>
+            </select>
+            <svg class="i"><use href="#i-chevron"/></svg>
+          </label>
+        </div>
+        <div class="field" id="sdDayField">
+          <label class="field-label" for="sdDay">Day of month</label>
+          <input type="number" id="sdDay" min="1" max="28" step="1">
+        </div>
+      </div>
+      <footer class="dialog-foot">
+        <span class="version">Version 1.0.0</span>
+        <span class="spacer"></span>
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary" id="sdSave">Save</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Confirm -->
+  <dialog class="dialog dialog-xs" id="confirmDialog" aria-labelledby="cdTitle">
+    <form method="dialog" novalidate class="dialog-inner">
+      <div class="dialog-body"><h3 id="cdTitle"></h3></div>
+      <footer class="dialog-foot">
+        <span class="spacer"></span>
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary" id="cdOk"></button>
+      </footer>
+    </form>
+  </dialog>
+
+  <div class="toasts" id="toasts" aria-live="assertive"></div>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><path d="m20.5 20.5-4.2-4.2"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></symbol>
+    <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M5 12l7-7 7 7M12 19V5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect width="13" height="13" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M12 20h.01M8.5 16.43a5 5 0 0 1 7 0M2 8.82a15 15 0 0 1 4.17-2.65M10.66 5c4.01-.36 8.14.9 11.34 3.76M16.85 11.25a10 10 0 0 1 2.22 1.68M5 13a10 10 0 0 1 5.24-2.76M2 2l20 20"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></symbol>
+    <symbol id="i-app" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 8h20M6 4v4M10 4v4"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><path d="M6 6h.01M6 18h.01"/></symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/></symbol>
+    <symbol id="i-package" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12M3.3 7l7.7 4.73a2 2 0 0 0 2 0L20.7 7M7.5 4.27l9 5.15"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="m5.3 5.3 13.4 13.4"/></symbol>
+  </svg>
+
+  <script src="app.js"></script>
+</body>
+</html>
