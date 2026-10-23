@@ -30,7 +30,32 @@ public sealed class TrafficMonitor : BackgroundService
         _store = store;
         _hub = hub;
         _log = log;
+        _counters = platform.Counters;
         _engine.Changed += _hub.Notify;
+    }
+
+    /// <summary>Records adapter bytes that no process accounts for, so the total matches the wire.</summary>
+    void SettleUnattributed()
+    {
+        if (_counters is null) return;
+        IReadOnlyList<InterfaceSample> samples;
+        try { samples = _counters.Read(); }
+        catch (Exception ex) { Diag.Note("counters.error", ex.Message); return; }
+        _unattributed.Sample(samples);
+        var r = _unattributed.Settle(Interlocked.Read(ref _attrUp), Interlocked.Read(ref _attrDown),
+            Interlocked.Read(ref _localUp), Interlocked.Read(ref _localDown));
+        _engine.Record(AppIdentity.OtherTraffic, 0, r.OtherUp, true);
+        _engine.Record(AppIdentity.OtherTraffic, 0, r.OtherDown, false);
+        _engine.Record(AppIdentity.VirtualMachines, 0, r.VmUp, true);
+        _engine.Record(AppIdentity.VirtualMachines, 0, r.VmDown, false);
+        Diag.Count("counters.other", r.OtherUp + r.OtherDown);
+        Diag.Count("counters.vm", r.VmUp + r.VmDown);
+    }
+
+    void SettleUnattributedBaseline()
+    {
+        try { if (_counters != null) _unattributed.Sample(_counters.Read()); }
+        catch (Exception ex) { Diag.Note("counters.error", ex.Message); }
     }
 
     public bool IsRunning => _source.IsRunning;
@@ -41,15 +66,27 @@ public sealed class TrafficMonitor : BackgroundService
         _source.Traffic += OnTraffic;
         _source.ProcessStarted += (pid, path) => { _resolver.Hint(pid, path); FlushPending(pid); };
         _source.ProcessStopped += pid => _resolver.Exited(pid);
-        try { _source.Start(); }
+        try { SettleUnattributedBaseline(); _source.Start(); }
         catch (Exception ex) { _log.LogError(ex, "Traffic monitor failed to start"); }
         return base.StartAsync(ct);
     }
 
+    // Cumulative bytes seen per process, used to find traffic no process accounts for.
+    long _attrUp, _attrDown, _localUp, _localDown;
+    readonly UnattributedTracker _unattributed = new();
+    readonly IInterfaceCounters? _counters;
+
     public void OnTraffic(TrafficEvent e)
     {
-        if (!AddressFilter.IsInternet(e.Remote)) { Diag.Count("monitor.local"); return; }
+        if (!AddressFilter.IsInternet(e.Remote))
+        {
+            Diag.Count("monitor.local");
+            if (!AddressFilter.IsLoopback(e.Remote))
+                Interlocked.Add(ref e.Sent ? ref _localUp : ref _localDown, e.Bytes);
+            return;
+        }
         Diag.Count("monitor.internet");
+        Interlocked.Add(ref e.Sent ? ref _attrUp : ref _attrDown, e.Bytes);
         var id = _resolver.Resolve(e.Pid);
         if (id != null) { _engine.Record(id, e.Pid, e.Bytes, e.Sent); return; }
         lock (_pendingGate)
@@ -88,7 +125,25 @@ public sealed class TrafficMonitor : BackgroundService
         }
     }
 
-    protected override async Task ExecuteAsync(CancellationToken ct)
+    protected override Task ExecuteAsync(CancellationToken ct) =>
+        Task.WhenAll(MainLoop(ct), CountersLoop(ct));
+
+    async Task CountersLoop(CancellationToken ct)
+    {
+        if (_counters is null) return;
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(250));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(ct))
+            {
+                try { SettleUnattributed(); }
+                catch (Exception ex) { _log.LogError(ex, "Adapter counters failed"); }
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    async Task MainLoop(CancellationToken ct)
     {
         var lastSave = DateTime.UtcNow;
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));

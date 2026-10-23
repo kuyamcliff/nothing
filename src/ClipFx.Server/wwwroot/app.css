@@ -507,3 +507,12 @@ input.invalid { border-color: var(--danger); }
 .sub { display: flex; gap: 14px; }
 .sub .pair { display: inline-flex; align-items: center; gap: 4px; }
 .sub .i { width: 13px; height: 13px; stroke-width: 2.2; color: var(--text-3); }
+
+.hidden-usage {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 20px; padding: 0 7px; border-radius: 5px;
+  background: var(--surface-3); color: var(--text-2);
+  font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.hidden-usage .dot { display: none; }
+.hidden-usage .dot.on { display: inline-block; opacity: 1; }

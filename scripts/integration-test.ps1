@@ -66,6 +66,12 @@ try {
   Check (-not $app.isSystem) 'probe is not a system item'
   $icon = Invoke-WebRequest "$Api/apps/$($app.id)/icon" -UseBasicParsing
   Check ($icon.StatusCode -eq 200 -and $icon.Headers['Content-Type'] -eq 'image/png') 'icon served'
+  $snapNow = WaitUntil { $x = Snap; $o = $x.apps | Where-Object { $_.kind -eq 'Network' }; if ($o -and $o.total -gt 50000) { $x } } 20 'adapter-level traffic'
+  $other = $snapNow.apps | Where-Object { $_.kind -eq 'Network' }
+  Pass "traffic no process claims is shown: $($other.total) bytes (headers and more)"
+  $appSum = ($snapNow.apps | Where-Object { $_.kind -ne 'Network' -and $_.kind -ne 'Virtual' } | Measure-Object total -Sum).Sum
+  Check ($snapNow.overall.total -ge $appSum) "overall ($($snapNow.overall.total)) covers all apps ($appSum)"
+  Write-Host "diag: $((Invoke-RestMethod "$Api/diag").counters | ConvertTo-Json -Compress)"
   $sys = (Snap).apps | Where-Object { $_.isSystem }
   Write-Host "system items seen: $(($sys | ForEach-Object name) -join ', ')"
 

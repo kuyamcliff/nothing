@@ -41,7 +41,8 @@ public static class SimulatedPlatform
         var fw = new SimulatedFirewall();
         var resolver = new SimulatedResolver();
         var source = new SimulatedTrafficSource(fw, resolver) { AutoTraffic = autoTraffic };
-        return new PlatformServices(source, resolver, fw, new NoopKiller(), new NoIcons(), Simulated: true);
+        var counters = new SimulatedInterfaceCounters(source, fw);
+        return new PlatformServices(source, resolver, fw, new NoopKiller(), new NoIcons(), Simulated: true, counters);
     }
 
     sealed class NoopKiller : IConnectionKiller
@@ -92,6 +93,11 @@ public sealed class SimulatedFirewall : IFirewall
     public bool IsEnabled() => Enabled;
     public void Enable() => Enabled = true;
     public void RemoveAll() { lock (_gate) _rules.Clear(); }
+
+    public bool AllowsAnything()
+    {
+        lock (_gate) return !Enabled || !_rules.ContainsKey(IFirewall.GlobalKey);
+    }
 
     /// <summary>Would traffic from this identity pass? Enforcement only counts when the firewall is on.</summary>
     public bool Allows(AppIdentity identity)
@@ -153,4 +159,64 @@ public sealed class SimulatedTrafficSource : ITrafficSource
     }
 
     public void Dispose() { _timer?.Dispose(); _timer = null; }
+}
+
+/// <summary>
+/// A fake Wi-Fi adapter: carries everything the simulated apps send plus, with automatic
+/// traffic on, protocol overhead and a stream no process owns. A fake WSL switch carries VM traffic.
+/// </summary>
+public sealed class SimulatedInterfaceCounters : IInterfaceCounters
+{
+    readonly SimulatedTrafficSource _source;
+    readonly SimulatedFirewall _fw;
+    readonly object _gate = new();
+    long _in, _out, _vmIn, _vmOut;
+    double _carryIn, _carryOut;
+    long _lastTicks = Environment.TickCount64;
+
+    public SimulatedInterfaceCounters(SimulatedTrafficSource source, SimulatedFirewall fw)
+    {
+        _source = source;
+        _fw = fw;
+        source.Traffic += e =>
+        {
+            if (!ClipFx.Engine.AddressFilter.IsInternet(e.Remote)) return;
+            double factor = source.AutoTraffic ? 1.04 : 1.0; // headers
+            lock (_gate)
+            {
+                if (e.Sent) { _carryOut += e.Bytes * factor; _out += (long)_carryOut; _carryOut -= (long)_carryOut; }
+                else { _carryIn += e.Bytes * factor; _in += (long)_carryIn; _carryIn -= (long)_carryIn; }
+            }
+        };
+    }
+
+    /// <summary>Puts bytes on the wire that no process reports (test hook).</summary>
+    public void AddUnattributed(long bytes, bool sent, bool viaVm)
+    {
+        if (!_fw.AllowsAnything()) return;
+        lock (_gate)
+        {
+            if (sent) _out += bytes; else _in += bytes;
+            if (viaVm) { if (sent) _vmIn += bytes; else _vmOut += bytes; }
+        }
+    }
+
+    public IReadOnlyList<InterfaceSample> Read()
+    {
+        long now = Environment.TickCount64;
+        double secs = (now - Interlocked.Exchange(ref _lastTicks, now)) / 1000.0;
+        if (_source.AutoTraffic && secs > 0)
+        {
+            AddUnattributed((long)(14_000 * secs), sent: false, viaVm: false); // e.g. a VPN or ICMP stream
+            AddUnattributed((long)(2_000 * secs), sent: true, viaVm: false);
+            AddUnattributed((long)(9_000 * secs), sent: false, viaVm: true);  // WSL downloading
+            AddUnattributed((long)(1_000 * secs), sent: true, viaVm: true);
+        }
+        lock (_gate)
+            return
+            [
+                new InterfaceSample("wifi", InterfaceKind.Physical, _in, _out),
+                new InterfaceSample("wsl", InterfaceKind.VirtualMachine, _vmIn, _vmOut),
+            ];
+    }
 }

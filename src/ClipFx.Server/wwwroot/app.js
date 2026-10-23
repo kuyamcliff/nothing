@@ -59,10 +59,12 @@
       case 'System': return 'cpu';
       case 'Packaged': return 'package';
       case 'Unknown': return 'help';
+      case 'Network': return 'globe';
+      case 'Virtual': return 'box';
       default: return 'app';
     }
   }
-  const kindLabel = { Program: 'Program', Service: 'Windows service', System: 'Windows kernel', Packaged: 'Store app', Unknown: 'Unknown' };
+  const kindLabel = { Program: 'Program', Service: 'Windows service', System: 'Windows kernel', Packaged: 'Store app', Unknown: 'Unknown', Network: 'Network', Virtual: 'Virtual machines' };
 
   async function api(method, path, body) {
     const res = await fetch('/api' + path, {
@@ -371,9 +373,22 @@
       container.replaceChildren(...els);
       if (focused && container.contains(focused)) focused.focus({ preventScroll: true });
     }
+    renderHiddenUsage(snap);
     const empty = els.length === 0;
     $('empty').hidden = !empty;
     if (empty) setText($('emptyText'), snap.apps.length === 0 ? 'No network activity yet' : 'No matches');
+  }
+
+  // When system items are hidden, show how much data they used so nothing goes unseen.
+  function renderHiddenUsage(snap) {
+    const hidden = showSystem() ? [] : snap.apps.filter((a) => a.isSystem);
+    const total = hidden.reduce((n, a) => n + a.total, 0);
+    const el = $('hiddenUsage');
+    el.hidden = total <= 0;
+    if (total > 0) {
+      setText($('hiddenUsageValue'), fmtBytes(total));
+      toggleClass(el.querySelector('.dot'), 'on', hidden.some((a) => a.active));
+    }
   }
 
   function renderSkeleton() {

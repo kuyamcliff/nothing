@@ -16,5 +16,6 @@ public static class WindowsPlatform
         new WindowsFirewall(),
         new TcpConnectionKiller(),
         new WindowsIconProvider(),
-        Simulated: false);
+        Simulated: false,
+        new WindowsInterfaceCounters());
 }

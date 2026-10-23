@@ -225,3 +225,43 @@ public sealed class ApiTests : IAsyncLifetime
         Assert.Equal(2, events);
     }
 }
+
+public sealed class UnattributedApiTests : IAsyncLifetime
+{
+    WebApplication _app = null!;
+    HttpClient _http = null!;
+
+    public async Task InitializeAsync()
+    {
+        _app = ServerHost.Build(new ServerOptions { Port = 0, DataDir = Directory.CreateTempSubdirectory().FullName }, SimulatedPlatform.Create(autoTraffic: false));
+        await _app.StartAsync();
+        _http = new HttpClient { BaseAddress = ServerHost.BoundAddress(_app) };
+        _http.DefaultRequestHeaders.Add("X-ClipFx", "1");
+    }
+
+    public async Task DisposeAsync() { _http.Dispose(); await _app.StopAsync(); await _app.DisposeAsync(); }
+
+    [Fact]
+    public async Task EveryByteOnTheWireShowsUp()
+    {
+        (await _http.PostAsJsonAsync("/api/dev/traffic", new { pid = 1001, bytes = 1_000_000, sent = false })).EnsureSuccessStatusCode();
+        (await _http.PostAsJsonAsync("/api/dev/unattributed", new { bytes = 300_000, sent = false, vm = false })).EnsureSuccessStatusCode();
+        (await _http.PostAsJsonAsync("/api/dev/unattributed", new { bytes = 200_000, sent = false, vm = true })).EnsureSuccessStatusCode();
+
+        JsonElement snap = default;
+        var until = DateTime.UtcNow.AddSeconds(10);
+        while (DateTime.UtcNow < until)
+        {
+            snap = await _http.GetFromJsonAsync<JsonElement>("/api/snapshot");
+            if (snap.GetProperty("overall").GetProperty("total").GetInt64() >= 1_500_000) break;
+            await Task.Delay(200);
+        }
+        var apps = snap.GetProperty("apps").EnumerateArray().ToDictionary(a => a.GetProperty("name").GetString()!);
+        Assert.Equal(1_500_000, snap.GetProperty("overall").GetProperty("total").GetInt64());
+        Assert.Equal(300_000, apps["Other network traffic"].GetProperty("total").GetInt64());
+        Assert.Equal(200_000, apps["Virtual machines and WSL"].GetProperty("total").GetInt64());
+        Assert.False(apps["Other network traffic"].GetProperty("isSystem").GetBoolean());
+        Assert.False(apps["Other network traffic"].GetProperty("canBlock").GetBoolean());
+        Assert.Equal("Network", apps["Other network traffic"].GetProperty("kind").GetString());
+    }
+}

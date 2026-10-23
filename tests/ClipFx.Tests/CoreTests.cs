@@ -68,3 +68,10 @@ public class PeriodTests
     [Fact]
     public void Never() => Assert.Null(Period.CurrentStart(DateTime.Now, S("never")));
 }
+
+public class InterfaceInteropTests
+{
+    [Fact]
+    public void MibIfRow2MatchesTheWindowsLayout() =>
+        Assert.Equal(1352, System.Runtime.InteropServices.Marshal.SizeOf<ClipFx.Platform.Windows.IfNative.MIB_IF_ROW2>());
+}

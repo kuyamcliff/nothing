@@ -14,6 +14,7 @@ public sealed record LimitBody(long? Bytes);
 public sealed record SettingsBody(string? Theme, string? ResetPeriod, int? ResetDay, bool? ShowSystem);
 public sealed record InjectBody(int Pid, long Bytes, bool Sent);
 public sealed record AutoBody(bool On);
+public sealed record UnattributedBody(long Bytes, bool Sent, bool Vm);
 
 public static class Api
 {
@@ -90,6 +91,12 @@ public static class Api
         {
             if (p.Traffic is not ClipFx.Platform.Simulated.SimulatedTrafficSource sim) return Results.NotFound();
             sim.Inject(b.Pid, b.Bytes, b.Sent);
+            return Results.NoContent();
+        });
+        api.MapPost("/dev/unattributed", (UnattributedBody b, PlatformServices p) =>
+        {
+            if (p.Counters is not ClipFx.Platform.Simulated.SimulatedInterfaceCounters c) return Results.NotFound();
+            c.AddUnattributed(b.Bytes, b.Sent, b.Vm);
             return Results.NoContent();
         });
         api.MapPost("/dev/auto", (AutoBody b, PlatformServices p) =>

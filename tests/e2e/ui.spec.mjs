@@ -55,7 +55,10 @@ test('hides system items until asked, and remembers the choice', async ({ page }
   await page.goto('/');
   await expect(row(page, 'Google Chrome')).toBeVisible();
   await expect(row(page, 'Windows Update')).toHaveCount(0);
+  await expect(page.locator('#hiddenUsage')).toBeVisible();
+  await expect(page.locator('#hiddenUsageValue')).toHaveText('5.00 MB');
   await page.getByText('Show system').click();
+  await expect(page.locator('#hiddenUsage')).toBeHidden();
   await expect(row(page, 'Windows Update')).toBeVisible();
   await expect(row(page, 'Windows Update').locator('.tag-system')).toBeVisible();
   await page.reload();
@@ -230,4 +233,20 @@ test('no labels carry helper text and no console errors', async ({ page }) => {
   await expect(page.locator('.row').first()).toBeVisible();
   await page.waitForTimeout(1500);
   expect(errors).toEqual([]);
+});
+
+test('shows traffic that no app accounts for', async ({ page, request }) => {
+  await page.goto('/');
+  await request.post('/api/dev/unattributed', { headers: H, data: { bytes: 2 * 1024 * 1024, sent: false, vm: false } });
+  await request.post('/api/dev/unattributed', { headers: H, data: { bytes: 1024 * 1024, sent: false, vm: true } });
+  const other = row(page, 'Other network traffic');
+  const vm = row(page, 'Virtual machines and WSL');
+  await expect(other.locator('.cell-used')).toHaveText('2.00 MB');
+  await expect(vm.locator('.cell-used')).toHaveText('1.00 MB');
+  await expect(other.locator('.tag-system')).toHaveCount(0); // visible without "Show system"
+  await expect(other.getByRole('switch')).toBeDisabled();
+  // 9 MB from apps + 3 MB no app claims
+  await expect(page.locator('#usedValue')).toHaveText('12.0 MB');
+  await other.locator('.app-name').click();
+  await expect(page.locator('#adKind')).toHaveText('Network');
 });

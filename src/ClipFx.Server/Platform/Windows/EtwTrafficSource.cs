@@ -66,7 +66,11 @@ public sealed class EtwTrafficSource : ITrafficSource
                 session.EnableProvider(KernelProcess, TraceEventLevel.Verbose, ProcessKeyword | ImageKeyword);
                 var parser = new RegisteredTraceEventParser(session.Source);
                 parser.All += OnEvent;
-                using var flusher = new Timer(_ => { try { session.Flush(); } catch { } }, null, 100, 100);
+                using var flusher = new Timer(_ =>
+                {
+                    try { session.Flush(); } catch { }
+                    try { Diag.Note("etw.lost", session.EventsLost.ToString()); } catch { }
+                }, null, 100, 100);
                 _running = true;
                 Error = null;
                 session.Source.Process();

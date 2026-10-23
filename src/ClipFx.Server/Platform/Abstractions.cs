@@ -49,10 +49,22 @@ public interface IIconProvider
     byte[]? GetPng(AppIdentity identity);
 }
 
+public enum InterfaceKind { Physical, VirtualMachine }
+
+/// <summary>Cumulative byte counters of one network adapter.</summary>
+public readonly record struct InterfaceSample(string Id, InterfaceKind Kind, long InOctets, long OutOctets);
+
+/// <summary>Reads adapter-level byte counters: every byte on the wire, whoever sent it.</summary>
+public interface IInterfaceCounters
+{
+    IReadOnlyList<InterfaceSample> Read();
+}
+
 public sealed record PlatformServices(
     ITrafficSource Traffic,
     IProcessResolver Resolver,
     IFirewall Firewall,
     IConnectionKiller Killer,
     IIconProvider Icons,
-    bool Simulated);
+    bool Simulated,
+    IInterfaceCounters? Counters = null);
