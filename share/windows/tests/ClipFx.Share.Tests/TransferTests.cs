@@ -154,6 +154,36 @@ public class TransferTests(ITestOutputHelper log)
     }
 
     [Fact]
+    public async Task SortsReceivedFilesByType()
+    {
+        await using var a = await Node.StartAsync("A");
+        await using var b = await Node.StartAsync("B", cfg: s => s.OrganizeByType = true);
+        var src = T.Temp("src");
+        var files = new[] { "clip.MP4", "photo.jpg", "song.mp3", "report.pdf", "game.apk", "setup.exe", "backup.zip", "data.7z", "notes.xyz", "noext" }
+            .Select((n, k) => T.RandomFile(src, n, 1000 + k, k)).ToList();
+        var folder = Path.Combine(src, "Trip");
+        T.RandomFile(folder, "day1/a.jpg", 500, 50);
+        T.RandomFile(folder, "video.mp4", 500, 51);
+        var id = a.N.Send([await a.Pair(b)], ShareNode.Collect([.. files, folder])).Single();
+        Assert.Equal(TransferState.Completed, (await T.Done(a.N, id)).State);
+        string P(params string[] p) => Path.Combine([b.Save, .. p]);
+        Assert.True(File.Exists(P("Videos", "clip.MP4")));
+        Assert.True(File.Exists(P("Images", "photo.jpg")));
+        Assert.True(File.Exists(P("Music", "song.mp3")));
+        Assert.True(File.Exists(P("Documents", "report.pdf")));
+        Assert.True(File.Exists(P("Apps", "game.apk")));
+        Assert.True(File.Exists(P("Apps", "setup.exe")));
+        Assert.True(File.Exists(P("Archives", "backup.zip")));
+        Assert.True(File.Exists(P("Archives", "data.7z")));
+        Assert.True(File.Exists(P("Other", "notes.xyz")));
+        Assert.True(File.Exists(P("Other", "noext")));
+        // A sent folder keeps its structure.
+        T.SameTree(folder, P("Folders", "Trip"));
+        var recv = await T.Incoming(b.N, x => x.State == TransferState.Completed);
+        Assert.Equal(b.Save, recv.OpenPath);
+    }
+
+    [Fact]
     public async Task ConflictPolicies()
     {
         await using var a = await Node.StartAsync("A");

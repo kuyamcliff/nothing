@@ -11,6 +11,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{28BA8806
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClipFx.Share.Tests", "tests\ClipFx.Share.Tests\ClipFx.Share.Tests.csproj", "{0DAC9024-ACE8-4BFD-8D76-68FB931F3237}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{B402233A-5371-40F5-A4A0-A59372226D61}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClipFx.Share.Cli", "tools\ClipFx.Share.Cli\ClipFx.Share.Cli.csproj", "{5AC79170-368E-4A72-8648-DD2C641B9830}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -28,9 +32,14 @@ Global
 		{0DAC9024-ACE8-4BFD-8D76-68FB931F3237}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0DAC9024-ACE8-4BFD-8D76-68FB931F3237}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0DAC9024-ACE8-4BFD-8D76-68FB931F3237}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5AC79170-368E-4A72-8648-DD2C641B9830}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5AC79170-368E-4A72-8648-DD2C641B9830}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5AC79170-368E-4A72-8648-DD2C641B9830}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5AC79170-368E-4A72-8648-DD2C641B9830}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{BFE09DAE-B11B-4780-AAF2-9D2B738422ED} = {5593C248-04B1-4807-BED6-39971070CDEF}
 		{0DAC9024-ACE8-4BFD-8D76-68FB931F3237} = {28BA8806-87E8-44BF-8CF6-3A19D0B7126D}
+		{5AC79170-368E-4A72-8648-DD2C641B9830} = {B402233A-5371-40F5-A4A0-A59372226D61}
 	EndGlobalSection
 EndGlobal

@@ -8,3 +8,7 @@ playwright-report/
 *.user
 .vs/
 dist-download/
+.gradle/
+share/android/**/build/
+share/android/local.properties
+*.apk

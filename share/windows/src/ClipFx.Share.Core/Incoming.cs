@@ -28,6 +28,7 @@ public sealed class IncomingSession
         public DateTime? Finished { get; set; }
         public string? Error { get; set; }
         public string Conflict { get; set; } = "rename";
+        public List<string>? Local { get; set; }
     }
 
     readonly object _gate = new();
@@ -36,6 +37,7 @@ public sealed class IncomingSession
     readonly RangeSet[] _have;
     readonly string?[] _finals;
     readonly bool[] _skipped;
+    string[] _local; // where each item is saved, relative to Root
     long _live; // bytes written including parts still in flight
 
     public string Id { get; }
@@ -61,6 +63,7 @@ public sealed class IncomingSession
         _have = items.Select(_ => new RangeSet()).ToArray();
         _finals = new string?[items.Count];
         _skipped = new bool[items.Count];
+        _local = items.Select(i => i.Path).ToArray();
         TotalBytes = items.Where(i => i.Type == ItemType.File).Sum(i => i.Size);
         Started = DateTime.UtcNow;
         State = TransferState.Waiting;
@@ -72,6 +75,7 @@ public sealed class IncomingSession
         for (int i = 0; i < _have.Length && i < s.Have.Count; i++) foreach (var r in s.Have[i]) _have[i].Add(r[0], r[1]);
         for (int i = 0; i < _finals.Length && i < s.Finals.Count; i++) _finals[i] = s.Finals[i];
         for (int i = 0; i < _skipped.Length && i < s.Skipped.Count; i++) _skipped[i] = s.Skipped[i];
+        if (s.Local is { } local && local.Count == _local.Length) _local = [.. local];
         _live = Done;
         // A restart interrupts whatever was in progress; the sender resumes it.
         if (!States.IsFinal(State) && State != TransferState.Waiting) State = TransferState.Interrupted;
@@ -86,7 +90,7 @@ public sealed class IncomingSession
             {
                 Id = Id, From = From, FromAddress = FromAddress?.ToString(), Items = [.. Items], Key = Key, Root = Root,
                 Have = _have.Select(h => h.ToArray()).ToList(), Finals = [.. _finals], Skipped = [.. _skipped],
-                State = State, Started = Started, Finished = Finished, Error = Error, Conflict = Conflict,
+                State = State, Started = Started, Finished = Finished, Error = Error, Conflict = Conflict, Local = [.. _local],
             };
     }
 
@@ -111,17 +115,18 @@ public sealed class IncomingSession
     }
 
     /// <summary>Accepts into a save folder. With "skip", files that already exist are marked done so they are never sent.</summary>
-    public void Accept(string root, string conflict)
+    public void Accept(string root, string conflict, bool organize = false)
     {
         lock (_gate)
         {
             Root = root;
             Conflict = conflict;
+            _local = Items.Select(i => Categories.Place(i.Path, i.Type, organize)).ToArray();
             if (conflict == "skip")
             {
                 foreach (var it in Items.Where(i => i.Type == ItemType.File))
                 {
-                    var final = PathSafety.Combine(root, it.Path);
+                    var final = PathSafety.Combine(root, _local[it.I]);
                     if (File.Exists(final)) { _skipped[it.I] = true; _have[it.I].Add(0, it.Size); _finals[it.I] = final; }
                 }
                 _live = Done;
@@ -135,7 +140,7 @@ public sealed class IncomingSession
         Items.Where(i => i.Type == ItemType.File && _have[i.I].Covered > 0)
              .Select(i => new { i = i.I, r = _have[i.I].ToArray() });
 
-    string PartPath(ItemInfo it) => PathSafety.Combine(Root, it.Path) + PartSuffix;
+    string PartPath(ItemInfo it) => PathSafety.Combine(Root, _local[it.I]) + PartSuffix;
 
     SafeFileHandle Handle(ItemInfo it)
     {
@@ -218,11 +223,11 @@ public sealed class IncomingSession
             switch (it.Type)
             {
                 case ItemType.Dir:
-                    Directory.CreateDirectory(PathSafety.Combine(Root, it.Path));
+                    Directory.CreateDirectory(PathSafety.Combine(Root, _local[it.I]));
                     break;
                 case ItemType.File when !_skipped[it.I] && _finals[it.I] is null:
                 {
-                    var final = PathSafety.Combine(Root, it.Path);
+                    var final = PathSafety.Combine(Root, _local[it.I]);
                     var part = final + PartSuffix;
                     Directory.CreateDirectory(Path.GetDirectoryName(final)!);
                     if (!File.Exists(part))
@@ -267,13 +272,17 @@ public sealed class IncomingSession
             try { File.Delete(PartPath(it)); } catch { }
     }
 
-    /// <summary>Where to point "Open folder": the save root, or the top folder of the transfer.</summary>
+    /// <summary>Where to point "Open folder": the deepest folder that holds everything received.</summary>
     public string? OpenTarget()
     {
         if (string.IsNullOrEmpty(Root)) return null;
-        var firstSeg = Items.Select(i => PathSafety.Segments(i.Path)).Where(s => s.Length > 1).Select(s => s[0]).Distinct().ToList();
-        if (firstSeg.Count == 1 && Items.All(i => PathSafety.Segments(i.Path)[0] == firstSeg[0])) return Path.Combine(Root, firstSeg[0]);
-        return Root;
+        var dirs = Items.Where(i => i.Type != ItemType.Text)
+            .Select(i => (Seg: PathSafety.Segments(_local[i.I]), i.Type))
+            .Select(x => x.Type == ItemType.Dir ? x.Seg : x.Seg[..^1]).ToList();
+        if (dirs.Count == 0) return Root;
+        var common = new List<string>();
+        for (int d = 0; dirs.All(x => x.Length > d) && dirs.Select(x => x[d]).Distinct().Count() == 1; d++) common.Add(dirs[0][d]);
+        return common.Count == 0 ? Root : Path.Combine([Root, .. common]);
     }
 }
 

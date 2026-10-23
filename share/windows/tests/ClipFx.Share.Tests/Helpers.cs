@@ -22,7 +22,7 @@ public sealed class Node : IAsyncDisposable
         var save = Path.Combine(data, "Received");
         int p = port ?? FreePort();
         var n = new ShareNode(data, "test");
-        n.UpdateSettings(s => { s.DeviceName = name; s.SaveDir = save; s.AskBeforeReceive = ask; s.Port = p; cfg?.Invoke(s); });
+        n.UpdateSettings(s => { s.DeviceName = name; s.SaveDir = save; s.AskBeforeReceive = ask; s.Port = p; s.OrganizeByType = false; cfg?.Invoke(s); });
         await n.StartAsync(discovery: false);
         return new Node(data, save, n.Port, n);
     }

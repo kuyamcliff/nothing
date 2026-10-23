@@ -55,6 +55,7 @@ public sealed class ShareSettings
     public bool StartWithWindows { get; set; } = true;
     public bool CloseToTray { get; set; } = true;
     public bool OpenFolderWhenDone { get; set; }
+    public bool OrganizeByType { get; set; } = true;
     public bool Discoverable { get; set; } = true;
     public int Port { get; set; } = Proto.TcpPort;
 

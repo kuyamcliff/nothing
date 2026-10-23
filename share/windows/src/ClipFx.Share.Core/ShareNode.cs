@@ -398,7 +398,7 @@ public sealed class ShareNode : IAsyncDisposable
         return new TransferView(s.Id, Direction.Send, PeerOf(s.Target), st, s.Error, TitleOf(s.Items),
             s.Items.Count(i => i.Type == ItemType.File), s.Items.Count(i => i.Type == ItemType.Dir), s.TotalBytes, done, rate, Eta(s.TotalBytes, done, rate),
             st == TransferState.Active ? s.CurrentFile : null, s.Started, s.Finished, null, null,
-            s.Items.FirstOrDefault(i => i.Type == ItemType.Text)?.Text, true, PreviewOf(s.Items),
+            s.Items.FirstOrDefault(i => i.Type == ItemType.Text)?.Text, true, null, PreviewOf(s.Items),
             CanPause: st is TransferState.Active or TransferState.Connecting or TransferState.Reconnecting or TransferState.Waiting or TransferState.PausedByPeer,
             CanResume: st is TransferState.Paused or TransferState.Interrupted or TransferState.Failed,
             CanCancel: !States.IsFinal(st),
@@ -410,22 +410,36 @@ public sealed class ShareNode : IAsyncDisposable
         long done = s.State == TransferState.Completed ? s.TotalBytes : Math.Min(s.TotalBytes, s.Live);
         double rate = s.State == TransferState.Active ? s.Rate.BytesPerSecond : 0;
         var st = s.State;
-        bool spaceOk = true;
         var saveDir = string.IsNullOrEmpty(s.Root) ? Settings.SaveDir : s.Root;
-        try
-        {
-            var root = Path.GetPathRoot(Path.GetFullPath(saveDir));
-            if (!string.IsNullOrEmpty(root)) spaceOk = new DriveInfo(root).AvailableFreeSpace >= s.TotalBytes - s.Done;
-        }
-        catch { }
+        var (spaceOk, warning) = CheckTarget(saveDir, s);
         return new TransferView(s.Id, Direction.Receive, PeerOf(s.From), st, s.Error, TitleOf(s.Items),
             s.Items.Count(i => i.Type == ItemType.File), s.Items.Count(i => i.Type == ItemType.Dir), s.TotalBytes, done, rate, Eta(s.TotalBytes, done, rate),
             null, s.Started, s.Finished, st == TransferState.Completed ? s.OpenTarget() : null, saveDir,
-            s.Items.FirstOrDefault(i => i.Type == ItemType.Text)?.Text, spaceOk, PreviewOf(s.Items),
+            s.Items.FirstOrDefault(i => i.Type == ItemType.Text)?.Text, spaceOk, warning, PreviewOf(s.Items),
             CanPause: st == TransferState.Active,
             CanResume: st == TransferState.Paused,
             CanCancel: !States.IsFinal(st),
             CanRetry: false);
+    }
+
+    const long Fat32Max = 4L * 1024 * 1024 * 1024 - 1;
+
+    /// <summary>Free space, and whether the drive's format can hold the largest file (FAT32 stops at 4 GB).</summary>
+    static (bool SpaceOk, string? Warning) CheckTarget(string saveDir, IncomingSession s)
+    {
+        if (States.IsFinal(s.State)) return (true, null);
+        try
+        {
+            var root = Path.GetPathRoot(Path.GetFullPath(saveDir));
+            if (string.IsNullOrEmpty(root)) return (true, null);
+            var drive = new DriveInfo(root);
+            bool spaceOk = drive.AvailableFreeSpace >= s.TotalBytes - s.Done;
+            long largest = s.Items.Where(i => i.Type == ItemType.File).Select(i => i.Size).DefaultIfEmpty(0).Max();
+            if (largest > Fat32Max && drive.DriveFormat.StartsWith("FAT", StringComparison.OrdinalIgnoreCase) && !drive.DriveFormat.Equals("exFAT", StringComparison.OrdinalIgnoreCase))
+                return (spaceOk, "The save drive is FAT32 and can't hold files over 4 GB.");
+            return (spaceOk, spaceOk ? null : "Not enough free space.");
+        }
+        catch { return (true, null); }
     }
 
     public IReadOnlyList<TransferView> Transfers() =>
@@ -563,10 +577,11 @@ public sealed class ShareNode : IAsyncDisposable
         var settings = Settings;
         bool trusted = settings.TrustedDevices.Contains(from.Id);
         var view = View(s);
-        if (!view.SpaceOk && !settings.AskBeforeReceive)
+        if (view.Warning != null && (!settings.AskBeforeReceive || trusted))
         {
-            s.SetState(TransferState.Declined, "Not enough space.");
-            return Json.Ok(new JsonObject { ["accepted"] = false, ["reason"] = "space" });
+            s.SetState(TransferState.Declined, view.Warning);
+            Persist(s);
+            return Json.Ok(new JsonObject { ["accepted"] = false, ["reason"] = view.SpaceOk ? "fat32" : "space" });
         }
 
         bool accept;
@@ -613,7 +628,7 @@ public sealed class ShareNode : IAsyncDisposable
             s.SetState(TransferState.Failed, "Can't use the save folder: " + ex.Message);
             return Json.Ok(new JsonObject { ["accepted"] = false, ["reason"] = "declined" });
         }
-        s.Accept(root, Settings.Conflict);
+        s.Accept(root, Settings.Conflict, Settings.OrganizeByType);
         if (s.Items.All(i => i.Type != ItemType.File)) { s.Finish(); }
         Persist(s);
         return Json.Ok(new JsonObject { ["accepted"] = true, ["key"] = key, ["have"] = Json.From(s.HaveForWire()) });

@@ -260,6 +260,7 @@ public sealed class OutgoingSession
             SetState(TransferState.Declined, reason switch
             {
                 "space" => "Not enough space on the other device.",
+                "fat32" => "The other device's storage can't hold files over 4 GB (FAT32).",
                 "timeout" => "No answer from the other device.",
                 "busy" => "The other device is busy.",
                 _ => "Declined.",
