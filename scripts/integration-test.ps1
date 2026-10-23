@@ -66,9 +66,13 @@ try {
   Check (-not $app.isSystem) 'probe is not a system item'
   $icon = Invoke-WebRequest "$Api/apps/$($app.id)/icon" -UseBasicParsing
   Check ($icon.StatusCode -eq 200 -and $icon.Headers['Content-Type'] -eq 'image/png') 'icon served'
-  $snapNow = WaitUntil { $x = Snap; $o = $x.apps | Where-Object { $_.kind -eq 'Network' }; if ($o -and $o.total -gt 50000) { $x } } 20 'adapter-level traffic'
+  $snapNow = WaitUntil { $x = Snap; $o = $x.apps | Where-Object { $_.kind -eq 'Network' }; if ($o -and $o.total -gt 20000) { $x } } 20 'adapter-level traffic'
+  Start-Sleep 2
+  $snapNow = Snap
   $other = $snapNow.apps | Where-Object { $_.kind -eq 'Network' }
+  Write-Host "adapters counted: $((Invoke-RestMethod "$Api/diag").notes.'counters.adapters')"
   Pass "traffic no process claims is shown: $($other.total) bytes (headers and more)"
+  Check ($other.total -lt ($app.received * 0.2)) "no double counting: other is $([math]::Round(100 * $other.total / $app.received, 1))% of the download"
   $appSum = ($snapNow.apps | Where-Object { $_.kind -ne 'Network' -and $_.kind -ne 'Virtual' } | Measure-Object total -Sum).Sum
   Check ($snapNow.overall.total -ge $appSum) "overall ($($snapNow.overall.total)) covers all apps ($appSum)"
   Write-Host "diag: $((Invoke-RestMethod "$Api/diag").counters | ConvertTo-Json -Compress)"
