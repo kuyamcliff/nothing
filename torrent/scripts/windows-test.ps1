@@ -60,7 +60,7 @@ try {
 
   Step 'Local swarm: open a .torrent file from Explorer'
   $seedLog = "$work\seed.log"
-  $seed = Start-Process dotnet -ArgumentList "`"$Seed`" $work\swarm 1500 4" -PassThru -NoNewWindow -RedirectStandardOutput $seedLog
+  $seedProc = Start-Process dotnet -ArgumentList "`"$Seed`" $work\swarm 1500 4" -PassThru -NoNewWindow -RedirectStandardOutput $seedLog
   WaitUntil { (Get-Content $seedLog -Raw -ErrorAction SilentlyContinue) -match 'READY' } 300 'seeders' | Out-Null
   $seedOut = Get-Content $seedLog
   $tpath = ($seedOut | Where-Object { $_ -like 'TORRENT *' }).Substring(8)
@@ -91,7 +91,7 @@ try {
   $t = WaitUntil { $x = T $hash; if ($x.status -in 'seeding', 'finished') { $x } } 300 'magnet download'
   Check ((Hash "$dl\Test Pack\movie.mkv") -eq $orig) 'magnet download identical'
   Post "/torrents/$hash/remove" @{ deleteFiles = $true } | Out-Null
-  Stop-Process -Id $seed.Id -Force -ErrorAction SilentlyContinue
+  Stop-Process -Id $seedProc.Id -Force -ErrorAction SilentlyContinue
 
   Step 'Internet: real torrent (Ubuntu desktop ISO)'
   $page = (Invoke-WebRequest 'https://releases.ubuntu.com/noble/' -UseBasicParsing).Content
