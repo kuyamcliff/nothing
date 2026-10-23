@@ -100,12 +100,9 @@ sealed class SharedFileWriter : IPieceWriter
 
     public ReusableTask<bool> ExistsAsync(ITorrentManagerFile file) => ReusableTask.FromResult(File.Exists(file.FullPath));
 
-    public ReusableTask FlushAsync(ITorrentManagerFile file)
-    {
-        lock (_gate)
-            if (_open.TryGetValue(file.FullPath, out var s) && s.Writable) RandomAccess.FlushToDisk(s.Handle);
-        return ReusableTask.CompletedTask;
-    }
+    // Writes go straight to the OS, which saves them even if the app crashes. Forcing them onto the
+    // platters (FlushFileBuffers) on every flush made pausing take minutes on Windows.
+    public ReusableTask FlushAsync(ITorrentManagerFile file) => ReusableTask.CompletedTask;
 
     public ReusableTask CloseAsync(ITorrentManagerFile file)
     {

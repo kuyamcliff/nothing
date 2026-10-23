@@ -147,6 +147,8 @@ public class DownloadTests(ITestOutputHelper log)
     [Fact]
     public async Task PauseResume_AndSurvivesAppRestart()
     {
+        var clock = Stopwatch.StartNew();
+        void Mark(string what) => log.WriteLine($"[{clock.Elapsed.TotalSeconds:F1}s] {what}");
         await using var swarm = new Swarm();
         var (dir, tp, t) = await swarm.MakeContentAsync("resume", 200L << 20, 1L << 20);
         await swarm.SeedAsync(t, dir, uploadLimit: 20 << 20);
@@ -154,7 +156,9 @@ public class DownloadTests(ITestOutputHelper log)
         var r = await c.AddAsync(new AddRequest(tp, null, null, null, null, null));
 
         await Swarm.WaitAsync(c, r.Id, x => x.Progress > 0.2, Long, log);
+        Mark("pausing");
         await c.PauseAsync(r.Id);
+        Mark("paused");
         var paused = c.Torrents().Single();
         Assert.Equal(Status.Paused, paused.Status);
         await Task.Delay(2000);
@@ -163,16 +167,21 @@ public class DownloadTests(ITestOutputHelper log)
         Assert.InRange(still.Done - paused.Done, 0, 4L << 20); // only in-flight blocks may land
 
         await c.ResumeAsync(r.Id);
+        Mark("resumed");
         var mid = await Swarm.WaitAsync(c, r.Id, x => x.Progress > 0.5, Long, log);
 
         // Quit the app mid-download and start it again.
+        Mark("closing app");
         await swarm.CloseAsync(c);
+        Mark("closed");
         var c2 = await swarm.ClientAsync();
+        Mark("restarted");
         var back = await Swarm.WaitAsync(c2, r.Id, x => x.HasMetadata && x.Status != Status.Checking && x.Progress > 0, TimeSpan.FromSeconds(60), log);
         log.WriteLine($"before restart {mid.Progress:P0}, after {back.Progress:P0}");
         Assert.True(back.Progress >= mid.Progress - 0.05, "progress was lost on restart");
 
         await Swarm.WaitAsync(c2, r.Id, x => x.Status is Status.Seeding or Status.Finished, Long, log);
+        Mark("finished");
         Assert.Equal(Swarm.Hash(Path.Combine(dir, "resume", "part0.bin")), Swarm.Hash(Path.Combine(c2.Settings.SaveDir, "resume", "part0.bin")));
 
         // A paused torrent stays paused after a restart.
@@ -208,7 +217,7 @@ public class DownloadTests(ITestOutputHelper log)
     public async Task Queue_SeedPolicy_Remove()
     {
         await using var swarm = new Swarm();
-        var a = await swarm.MakeContentAsync("qa", 60L << 20, 1L << 20);
+        var a = await swarm.MakeContentAsync("qa", 400L << 20, 1L << 20);
         var b = await swarm.MakeContentAsync("qb", 20L << 20, 1L << 20);
         await swarm.SeedAsync(a.Torrent, a.Dir, uploadLimit: 10 << 20);
         await swarm.SeedAsync(b.Torrent, b.Dir);
@@ -216,8 +225,18 @@ public class DownloadTests(ITestOutputHelper log)
 
         var ra = await c.AddAsync(new AddRequest(a.TorrentPath, null, null, null, null, null));
         var rb = await c.AddAsync(new AddRequest(b.TorrentPath, null, null, null, null, null));
-        await Swarm.WaitAsync(c, ra.Id, x => x.Status == Status.Downloading, TimeSpan.FromSeconds(30), log);
-        Assert.Equal(Status.Queued, c.Torrents().Single(x => x.Id == rb.Id).Status);
+        // Only one download at a time: the second waits in the queue while the first runs.
+        var end = DateTime.UtcNow.AddSeconds(30);
+        bool sawQueued = false;
+        while (DateTime.UtcNow < end && !sawQueued)
+        {
+            var all = c.Torrents();
+            var va = all.Single(x => x.Id == ra.Id); var vb = all.Single(x => x.Id == rb.Id);
+            sawQueued = va.Status is Status.Downloading or Status.Stalled && vb.Status == Status.Queued;
+            Assert.False(va.Status is Status.Downloading && vb.Status is Status.Downloading, "both downloading at once");
+            await Task.Delay(20);
+        }
+        Assert.True(sawQueued, "second torrent never waited in the queue");
 
         // Force-start jumps the queue.
         await c.ResumeAsync(rb.Id, force: true);
