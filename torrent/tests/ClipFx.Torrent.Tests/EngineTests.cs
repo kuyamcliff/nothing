@@ -240,6 +240,23 @@ public class DownloadTests(ITestOutputHelper log)
     }
 
     [Fact]
+    public async Task RemoveThenAddSameTorrentByMagnet_DownloadsAgain()
+    {
+        await using var swarm = new Swarm();
+        var (dir, tp, t) = await swarm.MakeContentAsync("again", 300L << 20, 1L << 20);
+        for (int i = 0; i < 4; i++) await swarm.SeedAsync(t, dir);
+        var c = await swarm.ClientAsync(tweak: s => { s.Dht = true; s.ExtraTrackers = true; s.PeerExchange = true; s.LocalPeers = true; s.Seeding = "ratio"; });
+        var r = await c.AddAsync(new AddRequest(tp, null, null, null, null, null));
+        await Swarm.WaitAsync(c, r.Id, x => x.Status is Status.Seeding or Status.Finished, Long, log);
+        Assert.True(await c.RemoveAsync(r.Id, deleteFiles: true));
+        var magnet = new MagnetLink(t.InfoHashes, t.Name, new List<string> { swarm.TrackerUrl }, null, t.Size).ToV1String();
+        var r2 = await c.AddAsync(new AddRequest(magnet, null, null, null, null, null));
+        Assert.Equal(r.Id, r2.Id);
+        await Swarm.WaitAsync(c, r.Id, x => x.Status is Status.Seeding or Status.Finished, TimeSpan.FromSeconds(60), log);
+        Assert.Equal(Swarm.Hash(Path.Combine(dir, "again", "part0.bin")), Swarm.Hash(Path.Combine(c.Settings.SaveDir, "again", "part0.bin")));
+    }
+
+    [Fact]
     public async Task Sequential_DownloadsInOrder()
     {
         await using var swarm = new Swarm();

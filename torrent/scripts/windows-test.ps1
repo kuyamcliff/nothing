@@ -157,7 +157,11 @@ try {
   Check (@(Get-Process ClipFxTorrent -ErrorAction SilentlyContinue).Count -eq 1) 'second launch reuses the window'
   Shot 'final'
 }
-catch { Write-Host "ERROR $_" -ForegroundColor Red; $summary.Add("ERROR $_"); $failures++ }
+catch {
+  Write-Host "ERROR $_" -ForegroundColor Red; $summary.Add("ERROR $_"); $failures++
+  try { (State).torrents | ForEach-Object { $summary.Add("STATE $($_.name): $($_.status) $([math]::Round($_.progress * 100, 1))% peers $($_.peers) $($_.error)") } } catch { }
+  Shot 'error'
+}
 finally {
   Step 'Uninstall'
   Get-Process ClipFxTorrent -ErrorAction SilentlyContinue | Stop-Process -Force

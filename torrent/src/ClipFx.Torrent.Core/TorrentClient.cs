@@ -235,7 +235,8 @@ public sealed class TorrentClient : IAsyncDisposable
             if (File.Exists(cached) && Torrent.TryLoad(cached, out var t0)) src = new Source { Torrent = t0, TorrentBytes = File.ReadAllBytes(cached) };
             else
             {
-                var magnet = WithExtraTrackers(src.Magnet!);
+                // Metadata only: keep the link's own trackers first so a dead public one can't hide them.
+                var magnet = src.Magnet!.AnnounceUrls.Count > 0 ? src.Magnet! : WithExtraTrackers(src.Magnet!);
                 var data = await _engine.DownloadMetadataAsync(magnet, ct);
                 var bytes = Sources.MetadataToTorrent(data, magnet);
                 src = Sources.FromBytes(bytes);
@@ -325,7 +326,11 @@ public sealed class TorrentClient : IAsyncDisposable
             }
             else
             {
-                m = await _engine.AddAsync(WithExtraTrackers(MagnetLink.Parse(e.Magnet)), e.SaveDir, ts);
+                // A magnet's trackers would all share one tier, which is asked one tracker at a time
+                // (and shuffled), so dead trackers delay live ones. One tier per tracker announces to all at once.
+                var ml = MagnetLink.Parse(e.Magnet);
+                m = await _engine.AddAsync(new MagnetLink(ml.InfoHashes, ml.Name, new List<string>(), ml.Webseeds, ml.Size), e.SaveDir, ts);
+                await AddTrackersAsync(m, (ml.AnnounceUrls ?? []).Concat(ExtraTrackers()).ToArray());
             }
             item.M = m;
             item.AttachError = null;
