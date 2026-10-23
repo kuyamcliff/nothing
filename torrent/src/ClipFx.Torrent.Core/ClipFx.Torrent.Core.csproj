@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>ClipFx.Torrents</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MonoTorrent" Version="3.0.2" />
+    <InternalsVisibleTo Include="ClipFx.Torrent.Tests" />
+  </ItemGroup>
+</Project>

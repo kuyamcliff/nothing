@@ -1,0 +1,54 @@
+name: ClipFx Torrent
+
+on:
+  push:
+    paths: ["torrent/**", ".github/workflows/torrent.yml"]
+  workflow_dispatch:
+
+jobs:
+  engine:
+    name: Engine tests (Linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 8.0.x }
+      - name: Engine tests
+        run: dotnet test torrent/tests/ClipFx.Torrent.Tests -c Release --logger "console;verbosity=normal"
+
+  windows:
+    name: Windows app, installer and real download test
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 8.0.x }
+      - name: Engine tests
+        run: dotnet test torrent/tests/ClipFx.Torrent.Tests -c Release --logger "console;verbosity=normal"
+      - name: Publish
+        run: |
+          dotnet publish torrent/src/ClipFx.Torrent.App -c Release -r win-x64 --self-contained true -p:DebugType=none -o torrent/publish
+          dotnet build torrent/tools/ClipFx.Torrent.Seed -c Release
+      - name: Installer
+        shell: pwsh
+        run: |
+          $iscc = Get-Command iscc.exe -ErrorAction SilentlyContinue
+          if (-not $iscc) { choco install innosetup -y --no-progress | Out-Null; $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" } else { $iscc = $iscc.Source }
+          & $iscc torrent\installer\ClipFxTorrent.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Real Windows test
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem torrent\dist\ClipFxTorrentSetup-*.exe | Select-Object -First 1).FullName
+          ./torrent/scripts/windows-test.ps1 -Setup $setup -Seed "$PWD\torrent\tools\ClipFx.Torrent.Seed\bin\Release\net8.0\ClipFx.Torrent.Seed.dll"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: torrent-windows-shots
+          path: torrent/test-shots/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ClipFxTorrentSetup
+          path: torrent/dist/ClipFxTorrentSetup-*.exe

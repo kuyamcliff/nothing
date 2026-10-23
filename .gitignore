@@ -12,3 +12,4 @@ dist-download/
 share/android/**/build/
 share/android/local.properties
 *.apk
+torrent/test-shots/

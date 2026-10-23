@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>ClipFxTorrent</AssemblyName>
+    <RootNamespace>ClipFx.Torrents.App</RootNamespace>
+    <ApplicationIcon>..\..\assets\clipfx-torrent.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <NoWarn>$(NoWarn);CA1416;WFO1000</NoWarn>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3277</MSBuildWarningsAsMessages>
+    <PublishReadyToRun>true</PublishReadyToRun>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\ClipFx.Torrent.Web\ClipFx.Torrent.Web.csproj" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+    <EmbeddedResource Include="..\..\assets\clipfx-torrent.ico" LogicalName="app.ico" />
+  </ItemGroup>
+</Project>

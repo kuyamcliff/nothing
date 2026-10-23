@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClipFx Torrent</title>
+  <script>
+    (function () { var t = 'system'; try { t = localStorage.getItem('cft.theme') || 'system'; } catch (e) {} if (t !== 'system') document.documentElement.setAttribute('data-theme', t); })();
+  </script>
+  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="torrent.css">
+</head>
+<body>
+  <div class="app" id="app" aria-busy="true">
+    <header class="topbar">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+          <rect x="1" y="1" width="30" height="30" rx="8" class="logo-tile"/>
+          <path d="M16 8v12M10.5 15l5.5 5.5 5.5-5.5M10 24h12" class="logo-ink" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="brand-name">ClipFx Torrent</span>
+      </div>
+      <form class="adder" id="adder" autocomplete="off">
+        <svg class="i adder-icon"><use href="#i-link"/></svg>
+        <input type="text" id="addInput" spellcheck="false" placeholder="Magnet link, torrent URL or info hash" aria-label="Magnet link, torrent URL or info hash">
+        <button type="button" class="btn btn-icon" id="openFileBtn" title="Open .torrent file" aria-label="Open .torrent file"><svg class="i"><use href="#i-file-plus"/></svg></button>
+        <button type="submit" class="btn btn-primary" id="addBtn"><svg class="i"><use href="#i-plus"/></svg><span>Add</span></button>
+      </form>
+      <div class="topbar-actions">
+        <button type="button" class="btn btn-icon" id="pauseAllBtn" title="Pause all" aria-label="Pause all"><svg class="i"><use href="#i-pause"/></svg></button>
+        <button type="button" class="btn btn-icon" id="resumeAllBtn" title="Resume all" aria-label="Resume all"><svg class="i"><use href="#i-play"/></svg></button>
+        <span class="divider"></span>
+        <div class="seg" role="radiogroup" aria-label="Theme" id="themeSeg">
+          <button type="button" role="radio" data-theme-value="light" title="Light" aria-label="Light"><svg class="i"><use href="#i-sun"/></svg></button>
+          <button type="button" role="radio" data-theme-value="dark" title="Dark" aria-label="Dark"><svg class="i"><use href="#i-moon"/></svg></button>
+          <button type="button" role="radio" data-theme-value="system" title="System" aria-label="System"><svg class="i"><use href="#i-monitor"/></svg></button>
+        </div>
+        <button type="button" class="btn btn-icon" id="settingsBtn" title="Settings" aria-label="Settings"><svg class="i"><use href="#i-sliders"/></svg></button>
+      </div>
+    </header>
+    <div class="banners" id="banners" aria-live="polite"></div>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <nav class="filters" id="filters" aria-label="Filter">
+          <button type="button" data-filter="all" aria-current="true"><svg class="i"><use href="#i-list"/></svg><span>All</span><b></b></button>
+          <button type="button" data-filter="downloading"><svg class="i"><use href="#i-arrow-down"/></svg><span>Downloading</span><b></b></button>
+          <button type="button" data-filter="seeding"><svg class="i"><use href="#i-arrow-up"/></svg><span>Seeding</span><b></b></button>
+          <button type="button" data-filter="done"><svg class="i"><use href="#i-check"/></svg><span>Done</span><b></b></button>
+          <button type="button" data-filter="paused"><svg class="i"><use href="#i-pause"/></svg><span>Paused</span><b></b></button>
+          <button type="button" data-filter="error"><svg class="i"><use href="#i-alert"/></svg><span>Errors</span><b></b></button>
+        </nav>
+
+        <section class="card speed">
+          <div class="speed-now">
+            <div><span class="speed-arrow down"><svg class="i"><use href="#i-arrow-down"/></svg></span><strong id="gDown">0 B/s</strong></div>
+            <div><span class="speed-arrow up"><svg class="i"><use href="#i-arrow-up"/></svg></span><strong id="gUp">0 B/s</strong></div>
+          </div>
+          <canvas id="graph" height="64" aria-hidden="true"></canvas>
+          <div class="peak"><span>Peak</span><span id="gPeak">0 B/s</span></div>
+        </section>
+
+        <dl class="facts" id="facts">
+          <div><dt>Network</dt><dd id="fNet">Online</dd></div>
+          <div><dt>Port</dt><dd id="fPort"></dd></div>
+          <div><dt>DHT</dt><dd id="fDht"></dd></div>
+          <div><dt>Connections</dt><dd id="fConn"></dd></div>
+          <div><dt>Free space</dt><dd id="fFree"></dd></div>
+        </dl>
+
+        <label class="when-done">
+          <span>When done</span>
+          <select class="select-plain" id="whenDone">
+            <option value="nothing">Do nothing</option>
+            <option value="sleep">Sleep</option>
+            <option value="hibernate">Hibernate</option>
+            <option value="shutdown">Shut down</option>
+          </select>
+        </label>
+      </aside>
+
+      <main class="main" id="main">
+        <section class="card list-card">
+          <div class="list-head">
+            <div class="search">
+              <svg class="i"><use href="#i-search"/></svg>
+              <input type="search" id="search" placeholder="Search" aria-label="Search">
+            </div>
+            <span class="spacer"></span>
+            <label class="sort">
+              <span class="sr">Sort</span>
+              <select class="select-plain" id="sortBy">
+                <option value="order">Queue order</option>
+                <option value="added">Date added</option>
+                <option value="name">Name</option>
+                <option value="size">Size</option>
+                <option value="progress">Progress</option>
+                <option value="down">Download speed</option>
+                <option value="eta">Time left</option>
+              </select>
+            </label>
+          </div>
+          <div class="cols" aria-hidden="true">
+            <span class="c-name">Name</span><span class="c-size">Size</span><span class="c-prog">Progress</span>
+            <span class="c-down">Down</span><span class="c-up">Up</span><span class="c-eta">Left</span><span class="c-peers">Peers</span><span class="c-act"></span>
+          </div>
+          <div class="rows" id="rows" role="listbox" aria-label="Torrents" tabindex="0"></div>
+          <div class="empty" id="empty" hidden>
+            <div class="empty-drop">
+              <svg class="i i-xl"><use href="#i-magnet"/></svg>
+              <span class="empty-title" id="emptyTitle">Drop .torrent files or paste a magnet link</span>
+              <div class="drop-actions" id="emptyActions">
+                <button type="button" class="btn" id="emptyOpen"><svg class="i"><use href="#i-file-plus"/></svg><span>Open file</span></button>
+                <button type="button" class="btn" id="emptyPaste"><svg class="i"><use href="#i-clipboard"/></svg><span>Paste</span></button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card detail" id="detail" hidden>
+          <div class="detail-head">
+            <div class="seg seg-text" role="tablist" id="dTabs">
+              <button type="button" role="tab" data-tab="files" aria-selected="true">Files</button>
+              <button type="button" role="tab" data-tab="peers" aria-selected="false">Peers</button>
+              <button type="button" role="tab" data-tab="trackers" aria-selected="false">Trackers</button>
+              <button type="button" role="tab" data-tab="info" aria-selected="false">Info</button>
+            </div>
+            <span class="detail-name" id="dName"></span>
+            <button type="button" class="btn btn-icon btn-sm" id="dClose" title="Close" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+          </div>
+          <div class="pieces" id="dPieces" aria-hidden="true"></div>
+          <div class="detail-body" id="dBody"></div>
+        </section>
+      </main>
+    </div>
+    <div class="drop-veil" id="dropVeil" hidden><div><svg class="i i-xl"><use href="#i-download"/></svg><span>Drop to add</span></div></div>
+  </div>
+
+  <!-- Add -->
+  <dialog class="dialog dialog-lg" id="addDialog" aria-labelledby="aTitle">
+    <div class="dialog-inner">
+      <header class="dialog-head">
+        <div class="kind-icon" id="aIcon"></div>
+        <div class="dialog-title">
+          <h3 id="aTitle"></h3>
+          <div class="sub" id="aSub"></div>
+        </div>
+        <button type="button" class="btn btn-icon" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+      </header>
+      <div class="dialog-body">
+        <div class="fetching" id="aFetching" hidden>
+          <span class="spinner"></span><span>Getting file list from peers</span>
+          <span class="spacer"></span>
+          <span class="fetch-time" id="aFetchTime"></span>
+        </div>
+        <div class="files-box" id="aFilesBox" hidden>
+          <div class="files-tools">
+            <label class="check"><input type="checkbox" id="aAll" checked><span>All files</span></label>
+            <span class="spacer"></span>
+            <span class="files-pick" id="aPick"></span>
+          </div>
+          <div class="files" id="aFiles"></div>
+        </div>
+        <div class="field">
+          <span class="field-label">Save to</span>
+          <div class="path-line">
+            <code id="aDir"></code>
+            <button type="button" class="btn btn-sm" id="aDirBtn">Change</button>
+          </div>
+          <div class="free-line" id="aFree"></div>
+        </div>
+        <div class="opts">
+          <label class="check"><input type="checkbox" id="aSeq"><span>Download in order</span></label>
+          <label class="check"><input type="checkbox" id="aPaused"><span>Add paused</span></label>
+        </div>
+      </div>
+      <footer class="dialog-foot">
+        <span class="warn-line" id="aWarn"></span>
+        <span class="spacer"></span>
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="button" class="btn btn-primary" id="aAdd">Add</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <!-- Remove -->
+  <dialog class="dialog dialog-xs" id="removeDialog" aria-labelledby="rTitle">
+    <div class="dialog-inner">
+      <div class="dialog-body">
+        <h3 id="rTitle"></h3>
+        <label class="check"><input type="checkbox" id="rFiles"><span>Also delete downloaded files</span></label>
+      </div>
+      <footer class="dialog-foot">
+        <span class="spacer"></span>
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="button" class="btn btn-primary btn-danger-fill" id="rGo">Remove</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <!-- Add peers -->
+  <dialog class="dialog dialog-sm" id="peersDialog" aria-labelledby="pTitle">
+    <div class="dialog-inner">
+      <header class="dialog-head"><div class="dialog-title"><h3 id="pTitle">Add peers</h3></div>
+        <button type="button" class="btn btn-icon" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></header>
+      <div class="dialog-body">
+        <textarea class="input textarea mono" id="pText" rows="5" placeholder="203.0.113.7:51413"></textarea>
+      </div>
+      <footer class="dialog-foot"><span class="spacer"></span>
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="button" class="btn btn-primary" id="pGo">Add</button></footer>
+    </div>
+  </dialog>
+
+  <!-- Settings -->
+  <dialog class="dialog dialog-lg" id="settingsDialog" aria-labelledby="sTitle">
+    <div class="dialog-inner">
+      <header class="dialog-head"><div class="dialog-title"><h3 id="sTitle">Settings</h3></div>
+        <button type="button" class="btn btn-icon" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></header>
+      <div class="dialog-body settings">
+        <section class="set-group">
+          <h4 class="label">Downloads</h4>
+          <div class="set-row"><span>Save to</span><span class="path" id="sSaveDir"></span><button type="button" class="btn btn-sm" id="sSaveDirBtn">Change</button></div>
+          <div class="set-row"><span>Move finished downloads to</span><span class="path" id="sMoveDir"></span>
+            <button type="button" class="btn btn-sm btn-ghost" id="sMoveClear" hidden>Off</button>
+            <button type="button" class="btn btn-sm" id="sMoveBtn">Choose</button></div>
+          <div class="set-row"><span>Ask what to download</span><input type="checkbox" class="sw" data-set="showAddDialog"></div>
+          <div class="set-row"><span>Download in order by default</span><input type="checkbox" class="sw" data-set="sequentialByDefault"></div>
+          <div class="set-row"><span>Downloads at once</span><input type="number" class="num-in" min="0" max="100" data-set="activeDownloads" data-zero="No limit"></div>
+        </section>
+        <section class="set-group">
+          <h4 class="label">Speed</h4>
+          <div class="set-row"><span>Download limit</span><span class="unit-input"><input type="number" class="num-in" min="0" data-set="downloadLimitKB" data-zero="Unlimited"><i>KB/s</i></span></div>
+          <div class="set-row"><span>Upload limit</span><span class="unit-input"><input type="number" class="num-in" min="0" data-set="uploadLimitKB" data-zero="Unlimited"><i>KB/s</i></span></div>
+          <div class="set-row"><span>Connections per torrent</span><input type="number" class="num-in" min="10" max="2000" data-set="connectionsPerTorrent"></div>
+          <div class="set-row"><span>Connections in total</span><input type="number" class="num-in" min="20" max="5000" data-set="connectionsTotal"></div>
+          <div class="set-row"><span>Upload slots per torrent</span><input type="number" class="num-in" min="2" max="100" data-set="uploadSlots"></div>
+        </section>
+        <section class="set-group">
+          <h4 class="label">Network</h4>
+          <div class="set-row"><span>Port</span><input type="number" class="num-in" min="1024" max="65535" data-set="port"><button type="button" class="btn btn-sm" id="sRandomPort">Random</button></div>
+          <div class="set-row"><span>Open port on router (UPnP)</span><input type="checkbox" class="sw" data-set="portForwarding"></div>
+          <div class="set-row"><span>DHT</span><input type="checkbox" class="sw" data-set="dht"></div>
+          <div class="set-row"><span>Peer exchange</span><input type="checkbox" class="sw" data-set="peerExchange"></div>
+          <div class="set-row"><span>Local peers</span><input type="checkbox" class="sw" data-set="localPeers"></div>
+          <div class="set-row"><span>Add public trackers</span><input type="checkbox" class="sw" data-set="extraTrackers"></div>
+          <div class="set-row"><span>Encryption</span>
+            <select class="select-plain" data-set="encryption"><option value="prefer">Allow</option><option value="require">Require</option><option value="off">Off</option></select></div>
+          <div class="set-col"><span>Extra trackers</span><textarea class="input textarea mono" rows="3" data-set="customTrackers" placeholder="udp://tracker.example.org:1337/announce"></textarea></div>
+        </section>
+        <section class="set-group">
+          <h4 class="label">Seeding</h4>
+          <div class="set-row"><span>When a download finishes</span>
+            <div class="seg seg-text" role="radiogroup" id="sSeed">
+              <button type="button" role="radio" data-v="forever">Keep seeding</button>
+              <button type="button" role="radio" data-v="ratio">Until ratio</button>
+              <button type="button" role="radio" data-v="stop">Stop</button>
+            </div></div>
+          <div class="set-row" id="sRatioRow"><span>Ratio</span><input type="number" class="num-in" min="0.1" max="100" step="0.1" data-set="seedRatio"></div>
+        </section>
+        <section class="set-group">
+          <h4 class="label">App</h4>
+          <div class="set-row"><span>Open magnet links and .torrent files</span><span class="ok-text" id="sDefaultOk" hidden>ClipFx Torrent</span><button type="button" class="btn btn-sm" id="sDefault">Use ClipFx Torrent</button></div>
+          <div class="set-row"><span>Start with Windows</span><input type="checkbox" class="sw" data-set="startWithWindows"></div>
+          <div class="set-row"><span>Keep running in tray when closed</span><input type="checkbox" class="sw" data-set="closeToTray"></div>
+          <div class="set-row"><span>Keep PC awake while downloading</span><input type="checkbox" class="sw" data-set="keepAwake"></div>
+          <div class="set-row"><span>Notify when a download finishes</span><input type="checkbox" class="sw" data-set="notify"></div>
+          <div class="set-row"><span>Open folder when a download finishes</span><input type="checkbox" class="sw" data-set="openFolderWhenDone"></div>
+        </section>
+      </div>
+      <footer class="dialog-foot"><span class="version" id="version"></span><span class="spacer"></span><button type="button" class="btn btn-primary" data-close>Done</button></footer>
+    </div>
+  </dialog>
+
+  <div class="menu" id="menu" role="menu" hidden></div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+    <symbol id="i-magnet" viewBox="0 0 24 24"><path d="m6 15-4-4 6.75-6.77a7.79 7.79 0 0 1 11 11L13 22l-4-4 6.39-6.36a2.14 2.14 0 0 0-3-3L6 15M5 8l4 4M12 15l4 4"/></symbol>
+    <symbol id="i-file-plus" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M9 15h6M12 18v-6"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+    <symbol id="i-video" viewBox="0 0 24 24"><path d="m16 13 5.22 3.48a.5.5 0 0 0 .78-.42V7.87a.5.5 0 0 0-.75-.43L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/></symbol>
+    <symbol id="i-disc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/></symbol>
+    <symbol id="i-app" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7M12 19V5"/></symbol>
+    <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m6 3 14 9-14 9V3z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect width="13" height="13" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+    <symbol id="i-order" viewBox="0 0 24 24"><path d="M3 6h7M3 12h7M3 18h7M17 4v16M13 16l4 4 4-4"/></symbol>
+    <symbol id="i-chev-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol>
+    <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-move" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M12 10v6M9 13l3 3 3-3"/></symbol>
+  </svg>
+  <script src="app.js"></script>
+</body>
+</html>
