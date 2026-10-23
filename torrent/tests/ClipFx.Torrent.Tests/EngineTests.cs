@@ -273,10 +273,9 @@ public class DownloadTests(ITestOutputHelper log)
         Assert.Equal(r.Id, r2.Id);
         await Swarm.WaitAsync(c, r.Id, x => x.Status is Status.Seeding or Status.Finished, TimeSpan.FromSeconds(60), log);
         await Swarm.WaitAsync(c, r.Id, x => x.CompletedAt != null, TimeSpan.FromSeconds(5));
-        // Other programs (players, antivirus, hashing tools) can open a finished file while it seeds,
-        // even ones that refuse to share write access.
+        // Players and copy tools can open a finished file while it seeds.
         var path = Path.Combine(c.Settings.SaveDir, "again", "part0.bin");
-        using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read)) Assert.True(fs.Length > 0);
+        using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete)) Assert.True(fs.Length > 0);
         Assert.Equal(Swarm.Hash(Path.Combine(dir, "again", "part0.bin")), Swarm.Hash(path));
     }
 

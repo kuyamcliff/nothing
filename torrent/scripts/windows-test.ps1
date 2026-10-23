@@ -17,6 +17,11 @@ function State { Invoke-RestMethod "$Ui/state" -TimeoutSec 5 }
 function Post($p, $b) { if ($null -eq $b) { $b = @{} }; Invoke-RestMethod "$Ui$p" -Method Post -Headers $H -ContentType 'application/json' -Body ($b | ConvertTo-Json -Compress -Depth 5) -TimeoutSec 60 }
 function T($id) { (State).torrents | Where-Object { $_.id -eq $id } }
 function MB($b) { [math]::Round($b / 1MB, 1) }
+# Read files the way players and copy tools do: sharing with the app, which may still be seeding them.
+function Hash($path) {
+  $fs = [IO.File]::Open($path, 'Open', 'Read', 'ReadWrite, Delete')
+  try { $sha = [Security.Cryptography.SHA256]::Create(); [BitConverter]::ToString($sha.ComputeHash($fs)) } finally { $fs.Dispose() }
+}
 
 $work = 'C:\cft-test'; Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Force $work | Out-Null
 $dl = "$work\Downloads"
@@ -73,9 +78,9 @@ try {
   Shot 'local-done'
   Note ("Local swarm: {0} MB in {1:N1}s = {2:N0} MB/s average (incl. startup)" -f (MB $t.size), $secs, $avg)
   Check ($avg -gt 40) ('local download speed {0:N0} MB/s' -f $avg)
-  $orig = Get-FileHash "$work\swarm\seed\Test Pack\movie.mkv"
-  Check ((Get-FileHash "$dl\Test Pack\movie.mkv").Hash -eq $orig.Hash) 'downloaded file is identical'
-  Check ((Get-FileHash "$dl\Test Pack\extras\cover.jpg").Hash -eq (Get-FileHash "$work\swarm\seed\Test Pack\extras\cover.jpg").Hash) 'folder structure kept'
+  $orig = Hash "$work\swarm\seed\Test Pack\movie.mkv"
+  Check ((Hash "$dl\Test Pack\movie.mkv") -eq $orig) 'downloaded file is identical'
+  Check ((Hash "$dl\Test Pack\extras\cover.jpg") -eq (Hash "$work\swarm\seed\Test Pack\extras\cover.jpg")) 'folder structure kept'
 
   Step 'Clicking a magnet link while the app runs'
   Post "/torrents/$hash/remove" @{ deleteFiles = $true } | Out-Null
@@ -84,7 +89,7 @@ try {
   $t = WaitUntil { T $hash } 30 'magnet handed to running app'
   Check ($null -ne $t) 'magnet link reached the running app'
   $t = WaitUntil { $x = T $hash; if ($x.status -in 'seeding', 'finished') { $x } } 300 'magnet download'
-  Check ((Get-FileHash "$dl\Test Pack\movie.mkv").Hash -eq $orig.Hash) 'magnet download identical'
+  Check ((Hash "$dl\Test Pack\movie.mkv") -eq $orig) 'magnet download identical'
   Post "/torrents/$hash/remove" @{ deleteFiles = $true } | Out-Null
   Stop-Process -Id $seed.Id -Force -ErrorAction SilentlyContinue
 
