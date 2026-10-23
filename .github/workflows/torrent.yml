@@ -16,6 +16,20 @@ jobs:
         with: { dotnet-version: 8.0.x }
       - name: Engine tests
         run: dotnet test torrent/tests/ClipFx.Torrent.Tests -c Release --logger "console;verbosity=normal"
+      - name: DHT routers reachable (network check)
+        run: |
+          python3 - <<'PY'
+          import socket
+          msg=b'd1:ad2:id20:abcdefghij0123456789e1:q4:ping1:t2:aa1:y1:qe'
+          for h,p in [("router.bittorrent.com",6881),("dht.transmissionbt.com",6881),("router.utorrent.com",6881),("dht.libtorrent.org",25401)]:
+              s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.settimeout(4)
+              try:
+                  ip=socket.gethostbyname(h); s.sendto(msg,(ip,p)); print(h, ip, 'replied', len(s.recv(1500)), 'bytes')
+              except Exception as e: print(h, '->', e)
+          PY
+      - name: DHT joins the network (internet)
+        env: { CFT_INTERNET: "1" }
+        run: dotnet test torrent/tests/ClipFx.Torrent.Tests -c Release --filter "FullyQualifiedName~Dht" --logger "console;verbosity=detailed"
 
   windows:
     name: Windows app, installer and real download test

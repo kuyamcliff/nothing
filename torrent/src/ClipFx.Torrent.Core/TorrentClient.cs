@@ -85,7 +85,7 @@ public sealed class TorrentClient : IAsyncDisposable
 
     public async Task StartAsync()
     {
-        _engine = new ClientEngine(EngineSettingsFor(Settings));
+        _engine = new ClientEngine(EngineSettingsFor(Settings), Factories.Default.WithDhtCreator(() => new BootstrapDht(Factories.Default.CreateDht())));
         _engine.CriticalException += (_, _) => Touch();
         var entries = Store.Load(_entriesPath, () => new List<Entry>());
         foreach (var e in entries.OrderBy(e => e.Order))
