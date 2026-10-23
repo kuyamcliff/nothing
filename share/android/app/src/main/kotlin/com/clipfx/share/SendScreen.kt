@@ -39,7 +39,6 @@ fun SendScreen(activity: MainActivity, state: UiState, onSent: () -> Unit) {
             title = { Text("ClipFx Share") },
             actions = {
                 IconButton(onClick = { activity.scanQr() }) { Icon(Icons.Outlined.QrCodeScanner, "Scan code") }
-                IconButton(onClick = { showQr = true }) { Icon(Icons.Outlined.QrCode2, "My code") }
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
         )
@@ -136,6 +135,7 @@ fun SelfCard(state: UiState, onCode: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun EmptyNearby(activity: MainActivity, state: UiState) {
     OutlinedCard(Modifier.fillMaxWidth(), colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface)) {
@@ -145,9 +145,9 @@ fun EmptyNearby(activity: MainActivity, state: UiState) {
                 Spacer(Modifier.width(10.dp))
                 Text("Searching", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { activity.scanQr() }) { Icon(Icons.Outlined.QrCodeScanner, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Scan code") }
-                OutlinedButton(onClick = { activity.startHotspot() }, enabled = state.hotspot == null) { Icon(Icons.Outlined.WifiTethering, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Hotspot") }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { activity.scanQr() }) { Icon(Icons.Outlined.QrCodeScanner, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Scan code", maxLines = 1) }
+                OutlinedButton(onClick = { activity.startHotspot() }, enabled = state.hotspot == null) { Icon(Icons.Outlined.WifiTethering, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Hotspot", maxLines = 1) }
             }
         }
     }

@@ -38,10 +38,10 @@ $CLI send --data "$WORK/host-send" --to 127.0.0.1:47630 "$WORK/movie.mp4" "$WORK
 wait $inst
 grep -E "CFS-RESULT" "$WORK/recv-inst.log"
 grep -q "OK (1 test)" "$WORK/recv-inst.log" && pass "pc -> phone" || { bad "pc -> phone"; tail -30 "$WORK/recv-inst.log"; }
-remote=$(adb shell md5sum "/sdcard/ClipFx Share/Videos/movie.mp4" | awk '{print $1}')
+remote=$(adb shell "md5sum '/sdcard/ClipFx Share/Videos/movie.mp4'" | awk '{print $1}')
 [ "$remote" = "$(md5sum "$WORK/movie.mp4" | awk '{print $1}')" ] && pass "video saved in ClipFx Share/Videos, identical" || bad "video on phone ($remote)"
-adb shell ls "/sdcard/ClipFx Share/Music/song.mp3" >/dev/null 2>&1 && pass "music sorted into ClipFx Share/Music" || bad "music folder"
-adb shell ls "/sdcard/ClipFx Share/" | tr -d '\r' | tr '\n' ' '; echo
+adb shell "ls '/sdcard/ClipFx Share/Music/song.mp3'" >/dev/null 2>&1 && pass "music sorted into ClipFx Share/Music" || bad "music folder"
+echo "phone folders: $(adb shell "ls '/sdcard/ClipFx Share/'" | tr -d '\r' | tr '\n' ' ')"
 
 # 3. Minified release build: UI, theme, and accepting a real request by tapping
 adb uninstall $PKG.test >/dev/null 2>&1
@@ -51,6 +51,7 @@ adb shell am force-stop $PKG
 adb shell pm clear $PKG >/dev/null   # fresh start: default settings ask before receiving
 adb shell appops set $PKG MANAGE_EXTERNAL_STORAGE allow
 adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS 2>/dev/null
+adb shell wm size 1080x2340; adb shell wm density 420
 adb shell cmd uimode night no
 adb shell am start -n $PKG/.MainActivity >/dev/null
 sleep 6

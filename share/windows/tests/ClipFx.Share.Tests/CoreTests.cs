@@ -41,7 +41,8 @@ public class PathSafetyTests
     [Fact]
     public void UniqueNames()
     {
-        var taken = new HashSet<string> { "/x/a.txt", "/x/a (2).txt" };
-        Assert.Equal("/x/a (3).txt", PathSafety.Unique("/x/a.txt", taken.Contains).Replace('\\', '/'));
+        string P(string n) => Path.Combine(Path.GetTempPath(), "x", n);
+        var taken = new HashSet<string> { P("a.txt"), P("a (2).txt") };
+        Assert.Equal(P("a (3).txt"), PathSafety.Unique(P("a.txt"), taken.Contains));
     }
 }

@@ -185,7 +185,7 @@ fun IncomingDialog(activity: MainActivity, t: TransferView) {
                 Spacer(Modifier.height(12.dp))
                 Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(10.dp)) {
                     Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        t.preview.forEach { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium) }
+                        t.preview.filter { it != "Text" || t.text == null }.forEach { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium) }
                         if (t.text != null) Text(t.text!!, maxLines = 4, overflow = TextOverflow.Ellipsis)
                     }
                 }
