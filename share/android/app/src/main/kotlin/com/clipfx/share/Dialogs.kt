@@ -45,8 +45,8 @@ fun QrDialog(activity: MainActivity, state: UiState, onDismiss: () -> Unit) {
     val host = if (state.hotspot != null) state.addresses.firstOrNull { it.startsWith("192.168.") || it.startsWith("10.") } ?: state.addresses.firstOrNull()
     else state.addresses.firstOrNull()
     val code = host?.let { QrCode(it, state.port, state.selfName, state.hotspot?.ssid, state.hotspot?.password).encode() }
-    val fg = MaterialTheme.colorScheme.onSurface.toArgb(); val bg = MaterialTheme.colorScheme.surface.toArgb()
-    val bmp = remember(code, fg) { code?.let { qrBitmap(it, 640, fg, bg) } }
+    // Always dark on white: scanners can't read inverted codes.
+    val bmp = remember(code) { code?.let { qrBitmap(it, 640, android.graphics.Color.BLACK, android.graphics.Color.WHITE) } }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(state.selfName) },

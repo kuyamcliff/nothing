@@ -47,3 +47,34 @@ jobs:
         with:
           name: ClipFxShare-apk
           path: share/android/app/build/outputs/apk/release/app-release.apk
+
+  windows:
+    name: Windows app, installer and real test
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 8.0.x }
+      - name: Engine tests
+        run: dotnet test share/windows/tests/ClipFx.Share.Tests -c Release
+      - name: Publish
+        run: |
+          dotnet publish share/windows/src/ClipFx.Share.App -c Release -r win-x64 --self-contained true -p:DebugType=none -o share/publish
+          dotnet build share/windows/tools/ClipFx.Share.Cli -c Release
+      - name: Installer
+        shell: pwsh
+        run: |
+          $iscc = Get-Command iscc.exe -ErrorAction SilentlyContinue
+          if (-not $iscc) { choco install innosetup -y --no-progress | Out-Null; $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" } else { $iscc = $iscc.Source }
+          & $iscc share\installer\ClipFxShare.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Real Windows test
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem share\dist\ClipFxShareSetup-*.exe | Select-Object -First 1).FullName
+          ./share/scripts/windows-test.ps1 -Setup $setup -Cli "$PWD\share\windows\tools\ClipFx.Share.Cli\bin\Release\net8.0\ClipFx.Share.Cli.dll"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ClipFxShareSetup
+          path: share/dist/ClipFxShareSetup-*.exe

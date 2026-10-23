@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClipFx Share</title>
+  <script>
+    (function () { var t = 'system'; try { t = localStorage.getItem('cfs.theme') || 'system'; } catch (e) {} if (t !== 'system') document.documentElement.setAttribute('data-theme', t); })();
+  </script>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="app" id="app" aria-busy="true">
+    <header class="topbar">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+          <rect x="1" y="1" width="30" height="30" rx="8" class="logo-tile"/>
+          <path d="M12.5 22V10M8.5 14l4-4 4 4M19.5 10v12M15.5 18l4 4 4-4" class="logo-ink" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="brand-name">ClipFx Share</span>
+      </div>
+      <div class="topbar-actions">
+        <div class="seg" role="radiogroup" aria-label="Theme" id="themeSeg">
+          <button type="button" role="radio" data-theme-value="light" title="Light" aria-label="Light"><svg class="i"><use href="#i-sun"/></svg></button>
+          <button type="button" role="radio" data-theme-value="dark" title="Dark" aria-label="Dark"><svg class="i"><use href="#i-moon"/></svg></button>
+          <button type="button" role="radio" data-theme-value="system" title="System" aria-label="System"><svg class="i"><use href="#i-monitor"/></svg></button>
+        </div>
+        <button type="button" class="btn btn-icon" id="settingsBtn" title="Settings" aria-label="Settings"><svg class="i"><use href="#i-sliders"/></svg></button>
+      </div>
+    </header>
+    <div class="banners" id="banners" aria-live="polite"></div>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="card self" id="selfCard">
+          <div class="self-icon"><svg class="i"><use href="#i-monitor"/></svg></div>
+          <div class="self-text">
+            <div class="self-name" id="selfName"><span class="skel skel-line"></span></div>
+            <div class="self-addr" id="selfAddr"></div>
+          </div>
+          <button type="button" class="btn btn-icon" id="qrBtn" title="Code" aria-label="Show code"><svg class="i"><use href="#i-qr"/></svg></button>
+        </section>
+
+        <div class="side-head">
+          <h2 class="label">Nearby</h2>
+          <button type="button" class="btn btn-icon btn-sm" id="scanBtn" title="Scan network" aria-label="Scan network"><svg class="i"><use href="#i-refresh"/></svg></button>
+          <button type="button" class="btn btn-icon btn-sm" id="addBtn" title="Add by IP" aria-label="Add by IP"><svg class="i"><use href="#i-plus"/></svg></button>
+        </div>
+        <div class="peers" id="peers" role="listbox" aria-multiselectable="true" aria-label="Nearby devices"></div>
+        <div class="peers-empty" id="peersEmpty" hidden>
+          <span class="spinner"></span><span>Searching</span>
+        </div>
+      </aside>
+
+      <main class="main">
+        <section class="card send" id="sendCard">
+          <div class="drop" id="drop">
+            <svg class="i i-xl"><use href="#i-upload"/></svg>
+            <span class="drop-title">Drop files or folders</span>
+            <div class="drop-actions">
+              <button type="button" class="btn" id="pickFiles"><svg class="i"><use href="#i-file"/></svg><span>Files</span></button>
+              <button type="button" class="btn" id="pickFolder"><svg class="i"><use href="#i-folder"/></svg><span>Folder</span></button>
+              <button type="button" class="btn" id="addText"><svg class="i"><use href="#i-text"/></svg><span>Text</span></button>
+            </div>
+          </div>
+          <div class="picked" id="picked"></div>
+          <footer class="send-foot">
+            <span class="send-summary" id="sendSummary">Nothing selected</span>
+            <button type="button" class="btn btn-ghost" id="clearPicked" hidden>Clear</button>
+            <button type="button" class="btn btn-primary btn-lg" id="sendBtn" disabled><svg class="i"><use href="#i-arrow-up"/></svg><span id="sendLabel">Send</span></button>
+          </footer>
+        </section>
+
+        <section class="card transfers">
+          <div class="transfers-head">
+            <div class="seg seg-text" role="tablist" id="tfTabs">
+              <button type="button" role="tab" data-tab="active" aria-selected="true">Active <span class="count" id="activeCount"></span></button>
+              <button type="button" role="tab" data-tab="history" aria-selected="false">History</button>
+            </div>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-ghost btn-sm" id="clearHistory" hidden>Clear history</button>
+          </div>
+          <div class="tf-list" id="tfList"></div>
+          <div class="empty" id="tfEmpty" hidden><svg class="i i-xl"><use href="#i-swap"/></svg><span id="tfEmptyText">No active transfers</span></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Incoming -->
+  <dialog class="dialog dialog-sm" id="incomingDialog" aria-labelledby="inName">
+    <div class="dialog-inner">
+      <header class="dialog-head center">
+        <div class="peer-icon peer-icon-lg" id="inIcon"></div>
+        <h3 id="inName"></h3>
+        <div class="in-summary" id="inSummary"></div>
+      </header>
+      <div class="dialog-body">
+        <ul class="in-list" id="inList"></ul>
+        <div class="in-text" id="inText" hidden></div>
+        <div class="warn-line" id="inWarn" hidden></div>
+        <label class="check"><input type="checkbox" id="inTrust"><span id="inTrustLabel"></span></label>
+      </div>
+      <footer class="dialog-foot">
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="inDecline">Decline</button>
+        <button type="button" class="btn btn-primary" id="inAccept">Accept</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <!-- QR -->
+  <dialog class="dialog dialog-xs" id="qrDialog" aria-labelledby="qrTitle">
+    <div class="dialog-inner">
+      <header class="dialog-head"><div class="dialog-title"><h3 id="qrTitle"></h3></div>
+        <button type="button" class="btn btn-icon" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></header>
+      <div class="dialog-body center">
+        <div class="qr" id="qrBox"></div>
+        <select class="select-plain" id="qrAddr" aria-label="Address"></select>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Add by IP -->
+  <dialog class="dialog dialog-xs" id="addDialog" aria-labelledby="addTitle">
+    <form method="dialog" novalidate class="dialog-inner" id="addForm">
+      <header class="dialog-head"><div class="dialog-title"><h3 id="addTitle">Add by IP</h3></div>
+        <button type="button" class="btn btn-icon" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></header>
+      <div class="dialog-body">
+        <input type="text" class="input" id="addAddr" placeholder="192.168.137.1" autocomplete="off" spellcheck="false" aria-label="Address">
+        <div class="warn-line" id="addErr" hidden>Not reachable</div>
+      </div>
+      <footer class="dialog-foot"><span class="spacer"></span>
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary" id="addSubmit">Add</button></footer>
+    </form>
+  </dialog>
+
+  <!-- Text -->
+  <dialog class="dialog dialog-sm" id="textDialog" aria-labelledby="textTitle">
+    <form method="dialog" novalidate class="dialog-inner" id="textForm">
+      <header class="dialog-head"><div class="dialog-title"><h3 id="textTitle">Text</h3></div>
+        <button type="button" class="btn btn-icon" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></header>
+      <div class="dialog-body"><textarea class="input textarea" id="textValue" rows="6" aria-label="Text"></textarea></div>
+      <footer class="dialog-foot"><span class="spacer"></span>
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary">Add</button></footer>
+    </form>
+  </dialog>
+
+  <!-- Settings -->
+  <dialog class="dialog" id="settingsDialog" aria-labelledby="setTitle">
+    <form method="dialog" novalidate class="dialog-inner" id="settingsForm">
+      <header class="dialog-head"><div class="dialog-title"><h3 id="setTitle">Settings</h3></div>
+        <button type="button" class="btn btn-icon" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></header>
+      <div class="dialog-body settings">
+        <div class="set-group">
+          <h4 class="label">Device</h4>
+          <label class="set-row"><span>Name</span><input type="text" class="input input-inline" id="sName" maxlength="40"></label>
+          <label class="set-row"><span>Visible to others</span><input type="checkbox" class="sw" id="sDiscoverable"></label>
+        </div>
+        <div class="set-group">
+          <h4 class="label">Receiving</h4>
+          <div class="set-row"><span>Save to</span><span class="path" id="sSaveDir"></span><button type="button" class="btn btn-sm" id="sPickSave">Change</button></div>
+          <label class="set-row"><span>Sort into folders by type</span><input type="checkbox" class="sw" id="sOrganize"></label>
+          <label class="set-row"><span>Ask before receiving</span><input type="checkbox" class="sw" id="sAsk"></label>
+          <label class="set-row"><span>When a file exists</span>
+            <select class="select-plain" id="sConflict"><option value="rename">Keep both</option><option value="overwrite">Replace</option><option value="skip">Skip</option></select></label>
+          <label class="set-row"><span>Open folder when done</span><input type="checkbox" class="sw" id="sOpenDone"></label>
+          <div class="set-row" id="sTrustedRow"><span>Trusted devices</span><span class="trusted" id="sTrusted"></span></div>
+        </div>
+        <div class="set-group">
+          <h4 class="label">Speed</h4>
+          <label class="set-row"><span>Parallel connections</span>
+            <select class="select-plain" id="sStreams"><option>1</option><option>2</option><option>4</option><option>6</option><option>8</option><option>12</option><option>16</option></select></label>
+          <label class="set-row"><span>Verify every chunk</span><input type="checkbox" class="sw" id="sVerify"></label>
+        </div>
+        <div class="set-group">
+          <h4 class="label">Windows</h4>
+          <label class="set-row"><span>Start with Windows</span><input type="checkbox" class="sw" id="sStartup"></label>
+          <label class="set-row"><span>Keep running in the tray when closed</span><input type="checkbox" class="sw" id="sTray"></label>
+        </div>
+      </div>
+      <footer class="dialog-foot"><span class="version">Version 1.0.0</span><span class="spacer"></span>
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary" id="sSave">Save</button></footer>
+    </form>
+  </dialog>
+
+  <dialog class="dialog dialog-xs" id="confirmDialog" aria-labelledby="cdTitle">
+    <form method="dialog" novalidate class="dialog-inner">
+      <div class="dialog-body"><h3 id="cdTitle"></h3></div>
+      <footer class="dialog-foot"><span class="spacer"></span>
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary" id="cdOk"></button></footer>
+    </form>
+  </dialog>
+
+  <div class="toasts" id="toasts" aria-live="assertive"></div>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></symbol>
+    <symbol id="i-qr" viewBox="0 0 24 24"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3M21 21v.01M12 7v3a2 2 0 0 1-2 2H7M3 12h.01M12 3h.01M12 16v.01M16 12h1M21 12v.01M12 21v-1"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5M12 3v12"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+    <symbol id="i-text" viewBox="0 0 24 24"><path d="M17 6.1H3M21 12.1H3M15.1 18H3"/></symbol>
+    <symbol id="i-video" viewBox="0 0 24 24"><path d="m16 13 5.22 3.48a.5.5 0 0 0 .78-.42V7.87a.5.5 0 0 0-.75-.43L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/></symbol>
+    <symbol id="i-app" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7M12 19V5"/></symbol>
+    <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m6 3 14 9-14 9V3z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect width="13" height="13" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="m21 16-4 4-4-4M17 20V4M3 8l4-4 4 4M7 4v16"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  </svg>
+  <script src="qrcode.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
