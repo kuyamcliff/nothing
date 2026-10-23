@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{5593C248-04B1-4807-BED6-39971070CDEF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClipFx.Share.Core", "src\ClipFx.Share.Core\ClipFx.Share.Core.csproj", "{BFE09DAE-B11B-4780-AAF2-9D2B738422ED}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{28BA8806-87E8-44BF-8CF6-3A19D0B7126D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClipFx.Share.Tests", "tests\ClipFx.Share.Tests\ClipFx.Share.Tests.csproj", "{0DAC9024-ACE8-4BFD-8D76-68FB931F3237}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BFE09DAE-B11B-4780-AAF2-9D2B738422ED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BFE09DAE-B11B-4780-AAF2-9D2B738422ED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BFE09DAE-B11B-4780-AAF2-9D2B738422ED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BFE09DAE-B11B-4780-AAF2-9D2B738422ED}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0DAC9024-ACE8-4BFD-8D76-68FB931F3237}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0DAC9024-ACE8-4BFD-8D76-68FB931F3237}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0DAC9024-ACE8-4BFD-8D76-68FB931F3237}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0DAC9024-ACE8-4BFD-8D76-68FB931F3237}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{BFE09DAE-B11B-4780-AAF2-9D2B738422ED} = {5593C248-04B1-4807-BED6-39971070CDEF}
+		{0DAC9024-ACE8-4BFD-8D76-68FB931F3237} = {28BA8806-87E8-44BF-8CF6-3A19D0B7126D}
+	EndGlobalSection
+EndGlobal
