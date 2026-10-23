@@ -328,7 +328,8 @@ class ShareNode(
         return TransferView(s.id, Direction.Receive, peerOf(s.from), st, s.error, titleOf(s.items),
             s.items.count { it.type == ItemType.FILE }, s.items.count { it.type == ItemType.DIR }, s.totalBytes, done, rate, eta(s.totalBytes, done, rate),
             null, s.started, s.finished, openPath, s.text, warningFor(s, root), previewOf(s.items),
-            canPause = st == TransferState.Active, canResume = st == TransferState.Paused, canCancel = !st.isFinal, canRetry = false)
+            canPause = st == TransferState.Active, canResume = st == TransferState.Paused, canCancel = !st.isFinal, canRetry = false,
+            saved = if (st == TransferState.Completed) s.items.mapNotNull { s.finalPath(it.i) } else emptyList())
     }
 
     private fun warningFor(s: IncomingSession, root: String): String? {

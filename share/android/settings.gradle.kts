@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "ClipFxShare"
 include(":core")
+include(":app")

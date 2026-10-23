@@ -64,4 +64,5 @@ data class TransferView(
     val rate: Double, val eta: Double?, val currentFile: String?, val started: Long, val finished: Long?,
     val openPath: String?, val text: String?, val warning: String?, val preview: List<String>,
     val canPause: Boolean, val canResume: Boolean, val canCancel: Boolean, val canRetry: Boolean,
+    val saved: List<String> = emptyList(),
 )

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Two arrows passing each other: send and receive. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#00000000" android:strokeColor="#ECECEF" android:strokeWidth="5.5" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M44,70 L44,38 M33,49 L44,38 L55,49" />
+    <path android:fillColor="#00000000" android:strokeColor="#ECECEF" android:strokeWidth="5.5" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M64,38 L64,70 M53,59 L64,70 L75,59" />
+</vector>
