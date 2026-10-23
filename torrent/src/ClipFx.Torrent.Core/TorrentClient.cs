@@ -87,7 +87,7 @@ public sealed class TorrentClient : IAsyncDisposable
     public async Task StartAsync()
     {
         _engine = new ClientEngine(EngineSettingsFor(Settings),
-            Factories.Default.WithPieceWriterCreator(max => _writer = new SharedFileWriter(max)));
+            Factories.Default.WithPieceWriterCreator(max => _writer = new SharedFileWriter(Factories.Default.CreatePieceWriter(max))));
         _engine.CriticalException += (_, _) => Touch();
         var entries = Store.Load(_entriesPath, () => new List<Entry>());
         foreach (var e in entries.OrderBy(e => e.Order))
@@ -458,7 +458,7 @@ public sealed class TorrentClient : IAsyncDisposable
                     anyFinishedNow = true;
                     // Hand the finished files over to other programs straight away.
                     try { await _engine.DiskManager.FlushAsync(m); } catch { }
-                    _writer?.Release(m.Files.Select(f => f.FullPath));
+                    if (_writer != null) await _writer.ReleaseAsync(m.Files);
                     if (!string.IsNullOrWhiteSpace(Settings.MoveDoneTo) && !PathEquals(Settings.MoveDoneTo!, e.SaveDir))
                         _ = MoveAsync(e.Id, Settings.MoveDoneTo!);
                     var view = ViewOf(it);
